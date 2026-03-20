@@ -9,23 +9,32 @@ const isDev = !app.isPackaged
 app.commandLine.appendSwitch('enable-gpu-rasterization')
 app.commandLine.appendSwitch('enable-zero-copy')
 
+// Set app name for Spotlight, dock, and menu bar
+app.name = 'Content Pipeline'
+if (process.platform === 'darwin') {
+  app.setName('Content Pipeline')
+}
+
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let serverProcess: ChildProcess | null = null
 
-const MEDIA_DIR = path.join(app.getPath('home'), 'Projects', 'the-project-videos')
 const SERVER_PORT = 3001
 const DEV_URL = 'http://localhost:5173'
 
 function createWindow() {
+  const appIcon = nativeImage.createFromPath(path.join(__dirname, '..', 'assets', 'icon-512.png'))
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1000,
     minHeight: 700,
+    title: 'Content Pipeline',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },
     backgroundColor: '#000000',
+    icon: appIcon,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -122,11 +131,14 @@ async function buildTrayMenu() {
     // Folders
     {
       label: 'Open This Week\'s Folder',
-      click: () => shell.openPath(path.join(MEDIA_DIR, weekKey)),
+      click: () => {
+          const weekKey = getWeekKey()
+          fetch(`http://localhost:${SERVER_PORT}/api/config/active`).then(r => r.json()).then((p: any) => shell.openPath(path.join(p.mediaDir, weekKey)))
+        },
     },
     {
       label: 'Open the-project-videos',
-      click: () => shell.openPath(MEDIA_DIR),
+      click: () => fetch(`http://localhost:${SERVER_PORT}/api/config/active`).then(r => r.json()).then((p: any) => shell.openPath(p.mediaDir)),
     },
     {
       label: 'Open Project Data',

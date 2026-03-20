@@ -10,19 +10,85 @@ import { read, write, findById, upsert, remove } from './storage.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = 3001
-const MEDIA_DIR = path.join(__dirname, '..', '..', 'the-project-videos')
+const DATA_ROOT = path.join(__dirname, '..', 'data')
+const CONFIG_PATH = path.join(DATA_ROOT, 'config.json')
 
 app.use(cors())
 app.use(express.json())
+
+// --- Project management ---
+function readConfig() {
+  return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'))
+}
+
+function writeConfig(config: any) {
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2))
+}
+
+function getActiveProject() {
+  const config = readConfig()
+  return config.projects.find((p: any) => p.id === config.activeProject) || config.projects[0]
+}
+
+function getMediaDir(): string {
+  return getActiveProject().mediaDir
+}
+
+function getProjectDataDir(): string {
+  const project = getActiveProject()
+  const dir = path.join(DATA_ROOT, 'projects', project.id)
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
+    // Initialize empty data files
+    for (const file of ['videos', 'ideas', 'clips', 'posts', 'actions']) {
+      const fp = path.join(dir, `${file}.json`)
+      if (!fs.existsSync(fp)) fs.writeFileSync(fp, '[]')
+    }
+    fs.writeFileSync(path.join(dir, 'weekly.json'), '{}')
+  }
+  return dir
+}
+
+// Project CRUD
+app.get('/api/config', (_req, res) => res.json(readConfig()))
+
+app.get('/api/config/active', (_req, res) => res.json(getActiveProject()))
+
+app.put('/api/config/active', (req, res) => {
+  const config = readConfig()
+  config.activeProject = req.body.projectId
+  writeConfig(config)
+  res.json(getActiveProject())
+})
+
+app.post('/api/config/projects', (req, res) => {
+  const config = readConfig()
+  const { name, color } = req.body
+  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+  const mediaDir = path.join(path.dirname(getMediaDir()), `${id}-videos`)
+
+  if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true })
+
+  const project = { id, name, color: color || '#8b5cf6', mediaDir, createdAt: new Date().toISOString() }
+  config.projects.push(project)
+  config.activeProject = id
+  writeConfig(config)
+
+  // Initialize data dir
+  getProjectDataDir()
+
+  res.status(201).json(project)
+})
 
 const PLATFORMS = ['instagram', 'tiktok', 'youtube', 'linkedin', 'x', 'reddit'] as const
 function defaultPlatforms() {
   return Object.fromEntries(PLATFORMS.map(p => [p, { caption: '', hashtags: [], posted: false, url: null, postedAt: null }]))
 }
 
-// Ensure media dir exists
-if (!fs.existsSync(MEDIA_DIR)) {
-  fs.mkdirSync(MEDIA_DIR, { recursive: true })
+// Ensure media dir exists on startup
+const _initMediaDir = getMediaDir()
+if (!fs.existsSync(_initMediaDir)) {
+  fs.mkdirSync(_initMediaDir, { recursive: true })
 }
 
 // --- Videos ---
@@ -266,8 +332,12 @@ app.get('/api/stats', (_req, res) => {
 })
 
 // --- Weekly Tracker ---
-const weeklyPath = () => path.join(__dirname, '..', 'data', 'weekly.json')
-const readWeekly = () => JSON.parse(fs.readFileSync(weeklyPath(), 'utf-8'))
+const weeklyPath = () => path.join(getProjectDataDir(), 'weekly.json')
+const readWeekly = () => {
+  const p = weeklyPath()
+  if (!fs.existsSync(p)) fs.writeFileSync(p, '{}')
+  return JSON.parse(fs.readFileSync(p, 'utf-8'))
+}
 const writeWeekly = (data: any) => fs.writeFileSync(weeklyPath(), JSON.stringify(data, null, 2))
 
 app.get('/api/weekly/:weekKey', (req, res) => {
@@ -284,7 +354,7 @@ app.put('/api/weekly/:weekKey', (req, res) => {
 
 // --- Media Upload & Management ---
 function weekFolder(weekKey: string): string {
-  const dir = path.join(MEDIA_DIR, weekKey)
+  const dir = path.join(getMediaDir(), weekKey)
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
   return dir
 }
@@ -310,7 +380,7 @@ app.post('/api/media/upload/:weekKey/:date', upload.array('files', 20), (req, re
 
 // List files for a day
 app.get('/api/media/day/:weekKey/:date', (req, res) => {
-  const dir = path.join(MEDIA_DIR, req.params.weekKey, `uploads-${req.params.date}`)
+  const dir = path.join(getMediaDir(), req.params.weekKey, `uploads-${req.params.date}`)
   if (!fs.existsSync(dir)) return res.json([])
   const files = fs.readdirSync(dir).filter(f => !f.startsWith('.')).map(f => {
     const stat = fs.statSync(path.join(dir, f))
@@ -321,7 +391,7 @@ app.get('/api/media/day/:weekKey/:date', (req, res) => {
 
 // List all files for a week
 app.get('/api/media/week/:weekKey', (req, res) => {
-  const dir = path.join(MEDIA_DIR, req.params.weekKey)
+  const dir = path.join(getMediaDir(), req.params.weekKey)
   if (!fs.existsSync(dir)) return res.json({})
   const result: Record<string, any[]> = {}
   for (const sub of fs.readdirSync(dir)) {
@@ -353,7 +423,7 @@ app.post('/api/media/rename', (req, res) => {
 //   project.json, script.md, sources/, exports/
 
 function projectDir(weekKey: string, slug: string): string {
-  const dir = path.join(MEDIA_DIR, weekKey, 'content', slug)
+  const dir = path.join(getMediaDir(), weekKey, 'content', slug)
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
     fs.mkdirSync(path.join(dir, 'sources'), { recursive: true })
@@ -389,7 +459,7 @@ app.post('/api/projects/init', (req, res) => {
 app.get('/api/projects/browse-sources/:weekKey', (req, res) => {
   const result: Record<string, any[]> = {}
 
-  const weekDir = path.join(MEDIA_DIR, req.params.weekKey)
+  const weekDir = path.join(getMediaDir(), req.params.weekKey)
   if (fs.existsSync(weekDir)) {
     for (const sub of fs.readdirSync(weekDir)) {
       if (sub === 'content') continue
@@ -410,7 +480,7 @@ app.get('/api/projects/browse-sources/:weekKey', (req, res) => {
   const [yearStr, wStr] = req.params.weekKey.split('-W')
   for (let w = parseInt(wStr) - 1; w >= Math.max(1, parseInt(wStr) - 2); w--) {
     const prevKey = `${yearStr}-W${String(w).padStart(2, '0')}`
-    const prevDir = path.join(MEDIA_DIR, prevKey)
+    const prevDir = path.join(getMediaDir(), prevKey)
     if (!fs.existsSync(prevDir)) continue
     for (const sub of fs.readdirSync(prevDir)) {
       if (sub === 'content') continue
@@ -433,7 +503,7 @@ app.get('/api/projects/browse-sources/:weekKey', (req, res) => {
 
 // Get project info including files
 app.get('/api/projects/:weekKey/:slug', (req, res) => {
-  const dir = path.join(MEDIA_DIR, req.params.weekKey, 'content', req.params.slug)
+  const dir = path.join(getMediaDir(), req.params.weekKey, 'content', req.params.slug)
   if (!fs.existsSync(dir)) return res.status(404).json({ error: 'Not found' })
 
   const metaPath = path.join(dir, 'project.json')
@@ -462,7 +532,7 @@ app.get('/api/projects/:weekKey/:slug', (req, res) => {
 
 // Save script.md
 app.put('/api/projects/:weekKey/:slug/script', (req, res) => {
-  const dir = path.join(MEDIA_DIR, req.params.weekKey, 'content', req.params.slug)
+  const dir = path.join(getMediaDir(), req.params.weekKey, 'content', req.params.slug)
   if (!fs.existsSync(dir)) return res.status(404).json({ error: 'Not found' })
   fs.writeFileSync(path.join(dir, 'script.md'), req.body.content)
   res.json({ success: true })
@@ -562,7 +632,7 @@ app.patch('/api/actions/:id', (req, res) => {
 // --- Media directory listing ---
 app.get('/api/media', (_req, res) => {
   try {
-    const files = fs.readdirSync(MEDIA_DIR).filter(f => !f.startsWith('.'))
+    const files = fs.readdirSync(getMediaDir()).filter(f => !f.startsWith('.'))
     res.json(files)
   } catch {
     res.json([])
@@ -580,5 +650,5 @@ if (process.env.NODE_ENV === 'production') {
 
 app.listen(PORT, () => {
   console.log(`Content Pipeline API running on http://localhost:${PORT}`)
-  console.log(`Media directory: ${MEDIA_DIR}`)
+  console.log(`Media directory: ${getMediaDir()}`)
 })
