@@ -3,10 +3,24 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DATA_DIR = path.join(__dirname, '..', 'data')
+const DATA_ROOT = path.join(__dirname, '..', 'data')
+const CONFIG_PATH = path.join(DATA_ROOT, 'config.json')
+
+function getDataDir(): string {
+  try {
+    const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'))
+    const dir = path.join(DATA_ROOT, 'projects', config.activeProject)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    return dir
+  } catch {
+    return DATA_ROOT
+  }
+}
 
 export function read<T>(file: string): T[] {
-  const filepath = path.join(DATA_DIR, `${file}.json`)
+  const filepath = path.join(getDataDir(), `${file}.json`)
   if (!fs.existsSync(filepath)) {
     fs.writeFileSync(filepath, '[]')
     return []
@@ -15,7 +29,7 @@ export function read<T>(file: string): T[] {
 }
 
 export function write<T>(file: string, data: T[]): void {
-  const filepath = path.join(DATA_DIR, `${file}.json`)
+  const filepath = path.join(getDataDir(), `${file}.json`)
   fs.writeFileSync(filepath, JSON.stringify(data, null, 2))
 }
 

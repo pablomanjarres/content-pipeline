@@ -1,0 +1,12 @@
+{
+  "activeProject": "nella",
+  "projects": [
+    {
+      "id": "nella",
+      "name": "Nella",
+      "color": "#10b981",
+      "mediaDir": "/Users/pablo/Projects/nella-videos",
+      "createdAt": "2026-03-20T00:00:00.000Z"
+    }
+  ]
+}
