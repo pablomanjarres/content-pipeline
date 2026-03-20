@@ -4,7 +4,7 @@ import { STATUS_COLORS, STATUS_LABELS, STATUS_ORDER, CATEGORY_COLORS, type Video
 
 interface Props {
   onOpenVideo: (id: string) => void
-  onNavigate: (page: 'dashboard' | 'pipeline' | 'ideas') => void
+  onNavigate: (page: 'dashboard' | 'pipeline' | 'ideas' | 'strategy') => void
 }
 
 export function Dashboard({ onOpenVideo, onNavigate }: Props) {

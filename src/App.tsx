@@ -3,15 +3,23 @@ import { Dashboard } from './pages/Dashboard'
 import { Pipeline } from './pages/Pipeline'
 import { Ideas } from './pages/Ideas'
 import { VideoDetail } from './pages/VideoDetail'
+import { Strategy } from './pages/Strategy'
 
-type Page = 'dashboard' | 'pipeline' | 'ideas' | 'video-detail'
+type Page = 'dashboard' | 'pipeline' | 'ideas' | 'strategy' | 'video-detail'
+
+const NAV_ITEMS: { key: Page; label: string }[] = [
+  { key: 'dashboard', label: 'Overview' },
+  { key: 'pipeline', label: 'Pipeline' },
+  { key: 'ideas', label: 'Ideas' },
+  { key: 'strategy', label: 'Strategy' },
+]
 
 function parseHash(): { page: Page; videoId: string | null } {
   const hash = window.location.hash.slice(1) || 'dashboard'
   if (hash.startsWith('video/')) {
     return { page: 'video-detail', videoId: hash.slice(6) }
   }
-  if (['dashboard', 'pipeline', 'ideas'].includes(hash)) {
+  if (['dashboard', 'pipeline', 'ideas', 'strategy'].includes(hash)) {
     return { page: hash as Page, videoId: null }
   }
   return { page: 'dashboard', videoId: null }
@@ -51,17 +59,17 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-6">
           <span className="font-bold text-lg tracking-tight">Content Pipeline</span>
           <div className="flex gap-1 ml-4">
-            {(['dashboard', 'pipeline', 'ideas'] as const).map(p => (
+            {NAV_ITEMS.map(({ key, label }) => (
               <button
-                key={p}
-                onClick={() => setPage(p)}
+                key={key}
+                onClick={() => setPage(key)}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  (page === p || (p === 'pipeline' && page === 'video-detail'))
+                  (page === key || (key === 'pipeline' && page === 'video-detail'))
                     ? 'bg-zinc-800 text-white'
                     : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
                 }`}
               >
-                {p === 'dashboard' ? 'Overview' : p === 'pipeline' ? 'Pipeline' : 'Ideas'}
+                {label}
               </button>
             ))}
           </div>
@@ -73,6 +81,7 @@ export default function App() {
         {page === 'dashboard' && <Dashboard onOpenVideo={openVideo} onNavigate={setPage} />}
         {page === 'pipeline' && <Pipeline onOpenVideo={openVideo} />}
         {page === 'ideas' && <Ideas onOpenVideo={openVideo} />}
+        {page === 'strategy' && <Strategy />}
         {page === 'video-detail' && selectedVideoId && (
           <VideoDetail id={selectedVideoId} onBack={() => setPage('pipeline')} />
         )}
