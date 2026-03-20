@@ -113,10 +113,10 @@ export default function App() {
             {page === 'ideas' && <Ideas onOpenVideo={openVideo} />}
             {page === 'strategy' && <Strategy />}
             {page === 'video-detail' && selectedItemId && (
-              <VideoDetail id={selectedItemId} onBack={() => setPage('pipeline')} />
+              <VideoDetail id={selectedItemId} onBack={() => setPage('dashboard')} />
             )}
             {page === 'post-detail' && selectedItemId && (
-              <PostDetail id={selectedItemId} onBack={() => setPage('posts')} />
+              <PostDetail id={selectedItemId} onBack={() => setPage('dashboard')} />
             )}
           </motion.div>
         </AnimatePresence>
