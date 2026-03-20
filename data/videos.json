@@ -288,5 +288,63 @@
     "notes": "",
     "createdAt": "2026-03-20T07:19:50.361Z",
     "updatedAt": "2026-03-20T07:19:50.361Z"
+  },
+  {
+    "id": "e37bf2fd-ebb6-4dbb-8ee8-c4f707fcc4d3",
+    "title": "IG Reel — Fri Mar 20",
+    "status": "idea",
+    "category": "building",
+    "hook": "",
+    "script": "",
+    "cta": "",
+    "platforms": {
+      "instagram": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "tiktok": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "youtube": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "linkedin": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "x": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "reddit": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      }
+    },
+    "clipPaths": [],
+    "tags": [],
+    "notes": "",
+    "createdAt": "2026-03-20T20:02:35.658Z",
+    "updatedAt": "2026-03-20T20:02:38.215Z"
   }
 ]
