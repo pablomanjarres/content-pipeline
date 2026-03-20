@@ -110,6 +110,14 @@ export function WeeklyTracker({ onOpenVideo, onOpenPost }: Props) {
     load()
   }
 
+  const resetCell = async (date: string, taskKey: string) => {
+    const dayData = { ...weekData[date] }
+    delete dayData[taskKey]
+    const updated = { ...weekData, [date]: dayData }
+    await saveWeekData(updated)
+    load()
+  }
+
   // Get content status for a cell
   const getCellStatus = (date: string, taskKey: string): { linked: boolean; status: string | null; id: string | null } => {
     const val = weekData[date]?.[taskKey]
@@ -220,25 +228,38 @@ export function WeeklyTracker({ onOpenVideo, onOpenPost }: Props) {
                   const isWorking = cell.linked && !isPosted
                   const isEmpty = !cell.linked && !isPosted
 
+                  const hasContent = isPosted || isWorking
+
                   return (
                     <td key={d.date} className="text-center p-0">
-                      <button
-                        onClick={() => handleClick(d.date, task, d)}
-                        className={`w-full h-10 rounded-lg border transition-all text-xs font-medium ${
-                          isPosted
-                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                            : isWorking
-                            ? 'border-amber-500/30 bg-amber-500/10 text-amber-400 hover:border-amber-500/50'
-                            : d.isToday
-                            ? 'border-zinc-600 bg-zinc-800 text-zinc-500 hover:border-zinc-400 hover:bg-zinc-700'
-                            : d.isPast
-                            ? 'border-zinc-800/50 bg-zinc-900/50 text-zinc-700'
-                            : 'border-zinc-800 bg-zinc-900 text-zinc-600 hover:border-zinc-600 hover:bg-zinc-800'
-                        }`}
-                        title={isPosted ? 'Posted' : isWorking ? `${cell.status} — click to open` : `Click to create ${task.label}`}
-                      >
-                        {isPosted ? '✓' : isWorking ? statusIcon(cell.status!) : ''}
-                      </button>
+                      <div className="relative group/cell">
+                        <button
+                          onClick={() => handleClick(d.date, task, d)}
+                          className={`w-full h-10 rounded-lg border transition-all text-xs font-medium ${
+                            isPosted
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                              : isWorking
+                              ? 'border-amber-500/30 bg-amber-500/10 text-amber-400 hover:border-amber-500/50'
+                              : d.isToday
+                              ? 'border-zinc-600 bg-zinc-800 text-zinc-500 hover:border-zinc-400 hover:bg-zinc-700'
+                              : d.isPast
+                              ? 'border-zinc-800/50 bg-zinc-900/50 text-zinc-700'
+                              : 'border-zinc-800 bg-zinc-900 text-zinc-600 hover:border-zinc-600 hover:bg-zinc-800'
+                          }`}
+                          title={isPosted ? 'Posted — click to open' : isWorking ? `${cell.status} — click to open` : `Click to create ${task.label}`}
+                        >
+                          {isPosted ? '✓' : isWorking ? statusIcon(cell.status!) : ''}
+                        </button>
+                        {hasContent && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); resetCell(d.date, task.key) }}
+                            className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-zinc-800 border border-zinc-700 text-[8px] text-white/40 hover:text-red-400 hover:border-red-500/50 opacity-0 group-hover/cell:opacity-100 transition-all flex items-center justify-center"
+                            title="Reset — unlink content"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
                     </td>
                   )
                 })}
