@@ -91,7 +91,7 @@ export default function App() {
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         {page === 'dashboard' && <Dashboard onOpenVideo={openVideo} onOpenPost={openPost} onNavigate={setPage} />}
-        {page === 'pipeline' && <Pipeline onOpenVideo={openVideo} />}
+        {page === 'pipeline' && <Pipeline onOpenVideo={openVideo} onOpenPost={openPost} />}
         {page === 'posts' && <Posts onOpenPost={openPost} />}
         {page === 'ideas' && <Ideas onOpenVideo={openVideo} />}
         {page === 'strategy' && <Strategy />}
