@@ -2,7 +2,20 @@ export type Status = 'idea' | 'scripted' | 'filming' | 'editing' | 'ready' | 'sc
 
 export type Category = 'building' | 'studying' | 'workout'
 
-export type Platform = 'instagram' | 'tiktok' | 'youtube'
+export type Platform = 'instagram' | 'tiktok' | 'youtube' | 'linkedin' | 'x' | 'reddit'
+
+export const VIDEO_PLATFORMS: Platform[] = ['instagram', 'tiktok', 'youtube']
+export const POST_PLATFORMS: Platform[] = ['linkedin', 'x', 'reddit']
+export const ALL_PLATFORMS: Platform[] = [...VIDEO_PLATFORMS, ...POST_PLATFORMS]
+
+export const PLATFORM_LABELS: Record<Platform, string> = {
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  youtube: 'YouTube',
+  linkedin: 'LinkedIn',
+  x: 'X',
+  reddit: 'Reddit',
+}
 
 export interface PlatformEntry {
   caption: string

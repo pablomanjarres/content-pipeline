@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getVideo, updateVideo, updateVideoStatus } from '../lib/api'
 import { ActionButtons } from '../components/ActionButtons'
-import { STATUS_ORDER, STATUS_LABELS, STATUS_COLORS, CATEGORY_COLORS, type Video, type Status, type Category, type Platform } from '../lib/types'
+import { STATUS_ORDER, STATUS_LABELS, STATUS_COLORS, CATEGORY_COLORS, VIDEO_PLATFORMS, POST_PLATFORMS, PLATFORM_LABELS, type Video, type Status, type Category, type Platform } from '../lib/types'
 
 interface Props {
   id: string
@@ -87,66 +87,23 @@ export function VideoDetail({ id, onBack }: Props) {
             onBlur={() => save({ cta: video.cta })}
           />
 
-          {/* Platform Captions */}
-          <div>
-            <h3 className="text-sm font-medium mb-2">Platform Captions</h3>
-            <div className="space-y-3">
-              {(['instagram', 'tiktok', 'youtube'] as Platform[]).map(platform => (
-                <div key={platform} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium capitalize text-zinc-400">{platform}</span>
-                    <label className="flex items-center gap-2 text-xs text-zinc-500">
-                      <input
-                        type="checkbox"
-                        checked={video.platforms[platform].posted}
-                        onChange={e => {
-                          const platforms = {
-                            ...video.platforms,
-                            [platform]: {
-                              ...video.platforms[platform],
-                              posted: e.target.checked,
-                              postedAt: e.target.checked ? new Date().toISOString() : null,
-                            },
-                          }
-                          setVideo({ ...video, platforms })
-                          save({ platforms })
-                        }}
-                        className="rounded"
-                      />
-                      Posted
-                    </label>
-                  </div>
-                  <textarea
-                    value={video.platforms[platform].caption}
-                    onChange={e => {
-                      const platforms = {
-                        ...video.platforms,
-                        [platform]: { ...video.platforms[platform], caption: e.target.value },
-                      }
-                      setVideo({ ...video, platforms })
-                    }}
-                    onBlur={() => save({ platforms: video.platforms })}
-                    placeholder={`${platform} caption...`}
-                    rows={2}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm outline-none focus:border-zinc-500 resize-none"
-                  />
-                  <input
-                    value={video.platforms[platform].url || ''}
-                    onChange={e => {
-                      const platforms = {
-                        ...video.platforms,
-                        [platform]: { ...video.platforms[platform], url: e.target.value || null },
-                      }
-                      setVideo({ ...video, platforms })
-                    }}
-                    onBlur={() => save({ platforms: video.platforms })}
-                    placeholder="Post URL..."
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-xs outline-none focus:border-zinc-500 mt-2 text-zinc-400"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Video Platforms */}
+          <PlatformSection
+            label="Video Platforms"
+            platforms={VIDEO_PLATFORMS}
+            video={video}
+            setVideo={setVideo}
+            save={save}
+          />
+
+          {/* Post Platforms */}
+          <PlatformSection
+            label="Post Platforms"
+            platforms={POST_PLATFORMS}
+            video={video}
+            setVideo={setVideo}
+            save={save}
+          />
 
           {/* Notes */}
           <div>
@@ -272,6 +229,88 @@ function Field({ label, value, placeholder, onChange, onBlur }: {
         placeholder={placeholder}
         className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-600"
       />
+    </div>
+  )
+}
+
+function PlatformSection({ label, platforms, video, setVideo, save }: {
+  label: string
+  platforms: Platform[]
+  video: Video
+  setVideo: (v: Video) => void
+  save: (updates: Partial<Video>) => Promise<void>
+}) {
+  const postedCount = platforms.filter(p => video.platforms[p]?.posted).length
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <h3 className="text-sm font-medium">{label}</h3>
+        {postedCount > 0 && (
+          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">
+            {postedCount}/{platforms.length} posted
+          </span>
+        )}
+      </div>
+      <div className="space-y-3">
+        {platforms.map(platform => {
+          const entry = video.platforms[platform] || { caption: '', hashtags: [], posted: false, url: null, postedAt: null }
+          return (
+            <div key={platform} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-zinc-400">{PLATFORM_LABELS[platform]}</span>
+                <label className="flex items-center gap-2 text-xs text-zinc-500">
+                  <input
+                    type="checkbox"
+                    checked={entry.posted}
+                    onChange={e => {
+                      const platforms = {
+                        ...video.platforms,
+                        [platform]: {
+                          ...entry,
+                          posted: e.target.checked,
+                          postedAt: e.target.checked ? new Date().toISOString() : null,
+                        },
+                      }
+                      setVideo({ ...video, platforms })
+                      save({ platforms })
+                    }}
+                    className="rounded"
+                  />
+                  Posted
+                </label>
+              </div>
+              <textarea
+                value={entry.caption}
+                onChange={e => {
+                  const platforms = {
+                    ...video.platforms,
+                    [platform]: { ...entry, caption: e.target.value },
+                  }
+                  setVideo({ ...video, platforms })
+                }}
+                onBlur={() => save({ platforms: video.platforms })}
+                placeholder={`${PLATFORM_LABELS[platform]} caption...`}
+                rows={2}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm outline-none focus:border-zinc-500 resize-none"
+              />
+              <input
+                value={entry.url || ''}
+                onChange={e => {
+                  const platforms = {
+                    ...video.platforms,
+                    [platform]: { ...entry, url: e.target.value || null },
+                  }
+                  setVideo({ ...video, platforms })
+                }}
+                onBlur={() => save({ platforms: video.platforms })}
+                placeholder="Post URL..."
+                className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-xs outline-none focus:border-zinc-500 mt-2 text-zinc-400"
+              />
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

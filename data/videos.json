@@ -2,14 +2,14 @@
   {
     "id": "ba62eb85-ea61-472d-8f93-32315ef7c930",
     "title": "tyest",
-    "status": "filming",
+    "status": "scripted",
     "category": "studying",
     "hook": "",
     "script": "ada",
     "cta": "",
     "platforms": {
       "instagram": {
-        "caption": "",
+        "caption": "ad",
         "hashtags": [],
         "posted": false,
         "url": null,
@@ -34,6 +34,6 @@
     "tags": [],
     "notes": "",
     "createdAt": "2026-03-20T04:11:15.031Z",
-    "updatedAt": "2026-03-20T04:28:12.865Z"
+    "updatedAt": "2026-03-20T04:44:18.749Z"
   }
 ]
