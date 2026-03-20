@@ -96,7 +96,7 @@ export function DailyMedia({ weekKey }: Props) {
 
       <div className="space-y-1">
         {days.map(day => {
-          const files = mediaByDay[day.date] || []
+          const files = mediaByDay[`uploads-${day.date}`] || []
           const isExpanded = expandedDay === day.date
 
           return (
