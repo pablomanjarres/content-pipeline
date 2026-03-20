@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getVideo, updateVideo, updateVideoStatus } from '../lib/api'
+import { ActionButtons } from '../components/ActionButtons'
 import { STATUS_ORDER, STATUS_LABELS, STATUS_COLORS, CATEGORY_COLORS, type Video, type Status, type Category, type Platform } from '../lib/types'
 
 interface Props {
@@ -241,6 +242,9 @@ export function VideoDetail({ id, onBack }: Props) {
               }}
             />
           </div>
+
+          {/* Claude Actions */}
+          <ActionButtons videoId={video.id} videoTitle={video.title} />
 
           {/* Meta */}
           <div className="text-xs text-zinc-600 space-y-1">

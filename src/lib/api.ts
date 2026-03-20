@@ -41,3 +41,21 @@ export const getStats = () => json<{
 
 // Media
 export const getMediaFiles = () => json<string[]>('/media')
+
+// Actions (Claude Code queue)
+export interface Action {
+  id: string
+  type: string
+  videoId: string | null
+  videoTitle: string | null
+  params: Record<string, any>
+  status: 'pending' | 'running' | 'done' | 'failed'
+  result: string | null
+  createdAt: string
+  completedAt: string | null
+}
+
+export const getActions = () => json<Action[]>('/actions')
+export const getPendingActions = () => json<Action[]>('/actions/pending')
+export const createAction = (data: { type: string; videoId?: string; videoTitle?: string; params?: Record<string, any> }) =>
+  json<Action>('/actions', { method: 'POST', body: JSON.stringify(data) })

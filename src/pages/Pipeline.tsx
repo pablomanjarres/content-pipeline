@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getVideos, createVideo, updateVideoStatus, deleteVideo } from '../lib/api'
 import { STATUS_ORDER, STATUS_LABELS, STATUS_COLORS, CATEGORY_COLORS, type Video, type Status, type Category } from '../lib/types'
+import { ActionButtons } from '../components/ActionButtons'
 
 interface Props {
   onOpenVideo: (id: string) => void
@@ -137,7 +138,10 @@ export function Pipeline({ onOpenVideo }: Props) {
                       {video.hook && <span className="text-[10px] text-zinc-600">🎣</span>}
                       {video.script && <span className="text-[10px] text-zinc-600">📝</span>}
                     </div>
-                    <div className="flex gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ActionButtons videoId={video.id} videoTitle={video.title} compact />
+                    </div>
+                    <div className="flex gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {STATUS_ORDER.indexOf(status) > 0 && (
                         <button onClick={() => moveVideo(video.id, 'prev')} className="text-[10px] text-zinc-500 hover:text-white">← Back</button>
                       )}
