@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getStats, getVideos, getPosts } from '../lib/api'
 import { STATUS_COLORS, STATUS_LABELS, STATUS_ORDER, CATEGORY_COLORS, ALL_PLATFORMS, PLATFORM_LABELS, VIDEO_PLATFORMS, POST_PLATFORMS, POST_STATUS_ORDER, POST_STATUS_LABELS, POST_STATUS_COLORS, type Video, type Post, type Platform } from '../lib/types'
+import { WeeklyTracker } from '../components/WeeklyTracker'
 
 interface Props {
   onOpenVideo: (id: string) => void
@@ -35,6 +36,9 @@ export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
 
   return (
     <div className="space-y-8">
+      {/* Weekly Tracker */}
+      <WeeklyTracker />
+
       {/* Stats Cards */}
       <div className="grid grid-cols-4 gap-4">
         <StatCard label="Videos" value={stats.totalVideos} onClick={() => onNavigate('pipeline')} />
