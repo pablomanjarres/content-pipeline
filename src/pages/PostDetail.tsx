@@ -232,19 +232,7 @@ export function PostDetail({ id, onBack }: Props) {
 
           <div className="glass glass-border rounded-xl p-4">
             <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium block mb-2">Platform</label>
-            <div className="space-y-0.5">
-              {(['linkedin', 'x', 'reddit'] as PostPlatform[]).map(p => (
-                <button
-                  key={p}
-                  onClick={() => { setPost({ ...post, platform: p }); save({ platform: p }) }}
-                  className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all ${
-                    post.platform === p ? 'bg-purple-500/15 text-purple-400 font-medium' : 'text-white/25 hover:text-white/50 hover:bg-white/[0.03]'
-                  }`}
-                >
-                  {PLATFORM_LABELS[p]}
-                </button>
-              ))}
-            </div>
+            <div className="text-sm text-purple-400 font-medium px-3 py-1.5">{PLATFORM_LABELS[post.platform]}</div>
           </div>
 
           <div className="glass glass-border rounded-xl p-4">
