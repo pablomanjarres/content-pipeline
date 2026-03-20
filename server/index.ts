@@ -169,6 +169,14 @@ app.delete('/api/ideas/:id', (req, res) => {
   }
 })
 
+app.delete('/api/actions/:id', (req, res) => {
+  if (remove('actions', req.params.id)) {
+    res.json({ success: true })
+  } else {
+    res.status(404).json({ error: 'Not found' })
+  }
+})
+
 // --- Stats ---
 app.get('/api/stats', (_req, res) => {
   const videos = read<any>('videos')

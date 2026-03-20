@@ -59,3 +59,4 @@ export const getActions = () => json<Action[]>('/actions')
 export const getPendingActions = () => json<Action[]>('/actions/pending')
 export const createAction = (data: { type: string; videoId?: string; videoTitle?: string; params?: Record<string, any> }) =>
   json<Action>('/actions', { method: 'POST', body: JSON.stringify(data) })
+export const deleteAction = (id: string) => json<{ success: boolean }>(`/actions/${id}`, { method: 'DELETE' })
