@@ -264,6 +264,23 @@ app.get('/api/stats', (_req, res) => {
   })
 })
 
+// --- Weekly Tracker ---
+// weekly.json stores { "2026-W12": { "2026-03-16": { "x": true, "linkedin": false, ... } } }
+app.get('/api/weekly/:weekKey', (req, res) => {
+  const data = read<any>('weekly') as any
+  // weekly.json is an object, not array — read raw
+  const raw = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'weekly.json'), 'utf-8'))
+  res.json(raw[req.params.weekKey] || {})
+})
+
+app.put('/api/weekly/:weekKey', (req, res) => {
+  const filepath = path.join(__dirname, '..', 'data', 'weekly.json')
+  const raw = JSON.parse(fs.readFileSync(filepath, 'utf-8'))
+  raw[req.params.weekKey] = req.body
+  fs.writeFileSync(filepath, JSON.stringify(raw, null, 2))
+  res.json(raw[req.params.weekKey])
+})
+
 // --- Actions (Claude Code queue) ---
 app.get('/api/actions', (_req, res) => {
   res.json(read('actions'))
