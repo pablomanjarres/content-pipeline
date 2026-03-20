@@ -1,7 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { motion } from 'framer-motion'
 import { getVideo, updateVideo, updateVideoStatus } from '../lib/api'
-import { ActionButtons } from '../components/ActionButtons'
-import { STATUS_ORDER, STATUS_LABELS, STATUS_COLORS, CATEGORY_COLORS, VIDEO_PLATFORMS, POST_PLATFORMS, PLATFORM_LABELS, type Video, type Status, type Category, type Platform } from '../lib/types'
+import { STATUS_ORDER, STATUS_LABELS, STATUS_COLORS, CATEGORY_COLORS, type Video, type Status, type Category } from '../lib/types'
+
+interface ProjectData {
+  folderPath: string
+  script: string
+  sources: { filename: string; path: string; size: number }[]
+  exports: { filename: string; path: string; size: number }[]
+}
+
+interface SourceFile {
+  filename: string; path: string; size: number; week: string; date: string
+}
 
 interface Props {
   id: string
@@ -10,12 +21,40 @@ interface Props {
 
 export function VideoDetail({ id, onBack }: Props) {
   const [video, setVideo] = useState<Video | null>(null)
+  const [project, setProject] = useState<ProjectData | null>(null)
+  const [script, setScript] = useState('')
   const [saving, setSaving] = useState(false)
+  const [browseSources, setBrowseSources] = useState<Record<string, SourceFile[]>>({})
+  const [showBrowser, setShowBrowser] = useState(false)
+  const exportRef = useRef<HTMLInputElement>(null)
 
-  const load = () => getVideo(id).then(setVideo)
+  const load = async () => {
+    const v = await getVideo(id)
+    setVideo(v)
+
+    // Derive weekKey and slug from video
+    const weekKey = getWeekKey(v.createdAt)
+    const slug = slugify(v.title)
+
+    // Init project folder
+    await fetch('/api/projects/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ weekKey, slug, title: v.title, type: 'video' }),
+    })
+
+    // Load project
+    const proj = await fetch(`/api/projects/${weekKey}/${slug}`).then(r => r.json())
+    setProject(proj)
+    setScript(proj.script || '')
+  }
+
   useEffect(() => { load() }, [id])
 
-  if (!video) return <div className="text-zinc-500">Loading...</div>
+  if (!video) return <div className="flex items-center justify-center h-40 text-white/20 text-sm">Loading project...</div>
+
+  const weekKey = getWeekKey(video.createdAt)
+  const slug = slugify(video.title)
 
   const save = async (updates: Partial<Video>) => {
     try {
@@ -23,118 +62,218 @@ export function VideoDetail({ id, onBack }: Props) {
       const updated = await updateVideo(id, updates)
       setVideo(updated)
       setTimeout(() => setSaving(false), 500)
-    } catch (e) {
-      console.error('Save failed:', e)
-      setSaving(false)
-    }
+    } catch { setSaving(false) }
+  }
+
+  const saveScript = async () => {
+    await fetch(`/api/projects/${weekKey}/${slug}/script`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: script }),
+    })
   }
 
   const changeStatus = async (status: Status) => {
     try {
       const updated = await updateVideoStatus(id, status)
       setVideo(updated)
-    } catch (e) {
-      console.error('Status update failed:', e)
-    }
+    } catch {}
   }
+
+  const loadBrowseSources = async () => {
+    const data = await fetch(`/api/projects/browse-sources/${weekKey}`).then(r => r.json())
+    setBrowseSources(data)
+    setShowBrowser(true)
+  }
+
+  const addSources = async (files: { path: string; filename: string }[]) => {
+    await fetch(`/api/projects/${weekKey}/${slug}/sources`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files }),
+    })
+    setShowBrowser(false)
+    load()
+  }
+
+  const uploadExport = async (files: FileList) => {
+    const form = new FormData()
+    form.append('file', files[0])
+    await fetch(`/api/projects/${weekKey}/${slug}/exports`, { method: 'POST', body: form })
+    load()
+  }
+
+  const formatSize = (bytes: number) => bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)}KB` : `${(bytes / (1024 * 1024)).toFixed(1)}MB`
 
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={onBack} className="text-zinc-500 hover:text-white text-sm">← Back</button>
-        {saving && <span className="text-xs text-emerald-400">Saved</span>}
+        <button onClick={onBack} className="text-white/30 hover:text-white text-sm transition-colors">← Back</button>
+        <div className="w-px h-4 bg-white/10" />
+        <span className="text-[11px] text-white/20 font-medium uppercase tracking-wider">Video Project</span>
+        {saving && <span className="text-[11px] text-emerald-400 font-medium">Saved</span>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-4">
+        {/* Main */}
+        <div className="lg:col-span-2 space-y-5">
           {/* Title */}
           <input
             value={video.title}
             onChange={e => setVideo({ ...video, title: e.target.value })}
             onBlur={() => save({ title: video.title })}
-            className="w-full bg-transparent text-2xl font-bold outline-none border-b border-transparent focus:border-zinc-700 pb-1"
+            className="w-full bg-transparent text-2xl font-bold outline-none border-b border-white/5 focus:border-white/20 pb-2 transition-colors"
+            placeholder="Video title..."
           />
 
           {/* Hook */}
-          <Field
-            label="Hook"
-            value={video.hook}
-            placeholder="Opening hook — first 3 seconds..."
-            onChange={v => setVideo({ ...video, hook: v })}
-            onBlur={() => save({ hook: video.hook })}
-          />
+          <div className="glass glass-border rounded-xl p-4">
+            <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium block mb-2">Hook — first 3 seconds</label>
+            <input
+              value={video.hook}
+              onChange={e => setVideo({ ...video, hook: e.target.value })}
+              onBlur={() => save({ hook: video.hook })}
+              placeholder="Pattern interrupt, bold claim..."
+              className="w-full bg-transparent text-white/90 outline-none text-sm"
+            />
+          </div>
 
-          {/* Script */}
-          <div>
-            <label className="text-xs text-zinc-500 block mb-1">Script</label>
+          {/* Script (synced to script.md in project folder) */}
+          <div className="glass glass-border rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium">Script</label>
+              <span className="text-[10px] text-white/15 font-mono">script.md</span>
+            </div>
             <textarea
-              value={video.script}
-              onChange={e => setVideo({ ...video, script: e.target.value })}
-              onBlur={() => save({ script: video.script })}
-              placeholder="Full script or talking points..."
-              rows={6}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-600 resize-y"
+              value={script}
+              onChange={e => setScript(e.target.value)}
+              onBlur={saveScript}
+              placeholder="# Hook&#10;&#10;# Script&#10;&#10;# CTA"
+              rows={8}
+              className="w-full bg-transparent text-white/80 outline-none text-sm resize-y font-mono leading-relaxed"
             />
           </div>
 
           {/* CTA */}
-          <Field
-            label="CTA"
-            value={video.cta}
-            placeholder="Call to action..."
-            onChange={v => setVideo({ ...video, cta: v })}
-            onBlur={() => save({ cta: video.cta })}
-          />
+          <div className="glass glass-border rounded-xl p-4">
+            <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium block mb-2">CTA</label>
+            <input
+              value={video.cta}
+              onChange={e => setVideo({ ...video, cta: e.target.value })}
+              onBlur={() => save({ cta: video.cta })}
+              placeholder="Call to action..."
+              className="w-full bg-transparent text-white/90 outline-none text-sm"
+            />
+          </div>
 
-          {/* Video Platforms */}
-          <PlatformSection
-            label="Video Platforms"
-            platforms={VIDEO_PLATFORMS}
-            video={video}
-            setVideo={setVideo}
-            save={save}
-          />
+          {/* Source Clips */}
+          <div className="glass glass-border rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium">Source Clips</label>
+              <button onClick={loadBrowseSources} className="text-[11px] text-white/40 hover:text-white/70 font-medium transition-colors">+ Add from library</button>
+            </div>
+            {project?.sources.length === 0 && !showBrowser && (
+              <p className="text-sm text-white/15">No source clips. Add from your weekly uploads.</p>
+            )}
+            {project?.sources.map(f => (
+              <div key={f.path} className="flex items-center gap-2 py-1.5">
+                <span className="text-white/15">🎬</span>
+                <span className="text-sm text-white/60 flex-1 truncate">{f.filename}</span>
+                <span className="text-[10px] text-white/20">{formatSize(f.size)}</span>
+              </div>
+            ))}
 
-          {/* Post Platforms */}
-          <PlatformSection
-            label="Post Platforms"
-            platforms={POST_PLATFORMS}
-            video={video}
-            setVideo={setVideo}
-            save={save}
-          />
+            {/* Source browser */}
+            {showBrowser && (
+              <div className="mt-3 border-t border-white/5 pt-3 space-y-2">
+                <div className="text-[11px] text-white/30 font-medium mb-2">Select from uploads</div>
+                {Object.entries(browseSources).length === 0 && (
+                  <p className="text-sm text-white/15">No uploads found. Upload raw footage first.</p>
+                )}
+                {Object.entries(browseSources).map(([key, files]) => (
+                  <div key={key}>
+                    <div className="text-[10px] text-white/20 font-mono mb-1">{key}</div>
+                    {files.map(f => (
+                      <button
+                        key={f.path}
+                        onClick={() => addSources([{ path: f.path, filename: f.filename }])}
+                        className="flex items-center gap-2 w-full text-left rounded-lg px-2 py-1.5 hover:bg-white/[0.03] transition-colors"
+                      >
+                        <span className="text-white/15">+</span>
+                        <span className="text-xs text-white/50 flex-1 truncate">{f.filename}</span>
+                        <span className="text-[10px] text-white/15">{formatSize(f.size)}</span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+                <button onClick={() => setShowBrowser(false)} className="text-[11px] text-white/30 hover:text-white/50">Close</button>
+              </div>
+            )}
+          </div>
+
+          {/* Export Versions */}
+          <div className="glass glass-border rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium">Exports</label>
+              <button onClick={() => exportRef.current?.click()} className="text-[11px] text-white/40 hover:text-white/70 font-medium transition-colors">+ Upload version</button>
+            </div>
+            <input ref={exportRef} type="file" accept="video/*" className="hidden" onChange={e => { if (e.target.files?.length) uploadExport(e.target.files) }} />
+            {project?.exports.length === 0 && (
+              <p className="text-sm text-white/15">No exports yet. Upload your first version.</p>
+            )}
+            {project?.exports.map((f, i) => (
+              <div key={f.path} className="flex items-center gap-3 py-2 border-b border-white/[0.03] last:border-0">
+                <span className="text-xs font-mono font-bold text-white/50 w-6">v{i + 1}</span>
+                <span className="text-sm text-white/60 flex-1 truncate">{f.filename}</span>
+                <span className="text-[10px] text-white/20">{formatSize(f.size)}</span>
+              </div>
+            ))}
+          </div>
 
           {/* Notes */}
-          <div>
-            <label className="text-xs text-zinc-500 block mb-1">Notes</label>
+          <div className="glass glass-border rounded-xl p-4">
+            <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium block mb-2">Notes</label>
             <textarea
               value={video.notes}
               onChange={e => setVideo({ ...video, notes: e.target.value })}
               onBlur={() => save({ notes: video.notes })}
               placeholder="Additional notes..."
               rows={3}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-600 resize-y"
+              className="w-full bg-transparent text-white/70 outline-none text-sm resize-y"
             />
           </div>
         </div>
 
         {/* Sidebar */}
         <div className="space-y-4">
+          {/* Project folder */}
+          {project?.folderPath && (
+            <div className="glass glass-border rounded-xl p-4">
+              <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium block mb-2">Project Folder</label>
+              <button
+                onClick={() => { navigator.clipboard.writeText(project.folderPath) }}
+                className="text-[11px] text-white/40 hover:text-white/60 font-mono break-all text-left transition-colors"
+                title="Click to copy path"
+              >
+                {project.folderPath}
+              </button>
+              <div className="text-[9px] text-white/15 mt-1">Click to copy — open in Finder/Premiere</div>
+            </div>
+          )}
+
           {/* Status */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-            <label className="text-xs text-zinc-500 block mb-2">Status</label>
-            <div className="space-y-1">
+          <div className="glass glass-border rounded-xl p-4">
+            <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium block mb-2">Status</label>
+            <div className="space-y-0.5">
               {STATUS_ORDER.map(s => (
                 <button
                   key={s}
                   onClick={() => changeStatus(s)}
-                  className={`w-full text-left px-3 py-1.5 rounded text-sm transition-colors ${
-                    video.status === s
-                      ? 'text-white font-medium'
-                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
+                  className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all ${
+                    video.status === s ? 'text-white font-medium' : 'text-white/25 hover:text-white/50 hover:bg-white/[0.03]'
                   }`}
-                  style={video.status === s ? { backgroundColor: STATUS_COLORS[s] + '33', color: STATUS_COLORS[s] } : undefined}
+                  style={video.status === s ? { backgroundColor: STATUS_COLORS[s] + '20', color: STATUS_COLORS[s] } : undefined}
                 >
                   {STATUS_LABELS[s]}
                 </button>
@@ -143,19 +282,17 @@ export function VideoDetail({ id, onBack }: Props) {
           </div>
 
           {/* Category */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-            <label className="text-xs text-zinc-500 block mb-2">Category</label>
-            <div className="space-y-1">
+          <div className="glass glass-border rounded-xl p-4">
+            <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium block mb-2">Category</label>
+            <div className="space-y-0.5">
               {(['building', 'studying', 'workout'] as Category[]).map(cat => (
                 <button
                   key={cat}
                   onClick={() => { setVideo({ ...video, category: cat }); save({ category: cat }) }}
-                  className={`w-full text-left px-3 py-1.5 rounded text-sm capitalize transition-colors ${
-                    video.category === cat
-                      ? 'font-medium'
-                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
+                  className={`w-full text-left px-3 py-1.5 rounded-lg text-sm capitalize transition-all ${
+                    video.category === cat ? 'font-medium' : 'text-white/25 hover:text-white/50 hover:bg-white/[0.03]'
                   }`}
-                  style={video.category === cat ? { backgroundColor: CATEGORY_COLORS[cat] + '22', color: CATEGORY_COLORS[cat] } : undefined}
+                  style={video.category === cat ? { backgroundColor: CATEGORY_COLORS[cat] + '15', color: CATEGORY_COLORS[cat] } : undefined}
                 >
                   {cat}
                 </button>
@@ -164,35 +301,24 @@ export function VideoDetail({ id, onBack }: Props) {
           </div>
 
           {/* Tags */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-            <label className="text-xs text-zinc-500 block mb-2">Tags</label>
+          <div className="glass glass-border rounded-xl p-4">
+            <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium block mb-2">Tags</label>
             <div className="flex flex-wrap gap-1 mb-2">
               {video.tags.map((tag, i) => (
-                <span key={i} className="text-xs bg-zinc-800 rounded px-2 py-0.5 flex items-center gap-1">
+                <span key={i} className="text-[11px] bg-white/[0.05] rounded-md px-2 py-0.5 text-white/50 flex items-center gap-1">
                   {tag}
-                  <button
-                    onClick={() => {
-                      const tags = video.tags.filter((_, j) => j !== i)
-                      setVideo({ ...video, tags })
-                      save({ tags })
-                    }}
-                    className="text-zinc-500 hover:text-red-400"
-                  >
-                    ×
-                  </button>
+                  <button onClick={() => { const tags = video.tags.filter((_, j) => j !== i); setVideo({ ...video, tags }); save({ tags }) }} className="text-white/20 hover:text-red-400">×</button>
                 </span>
               ))}
             </div>
             <input
               placeholder="Add tag..."
-              className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs outline-none focus:border-zinc-500"
+              className="w-full bg-white/[0.03] rounded-lg px-2.5 py-1.5 text-[11px] outline-none text-white/50 focus:text-white/70 border border-white/[0.04] focus:border-white/10 transition-colors"
               onKeyDown={e => {
                 if (e.key === 'Enter') {
                   const val = (e.target as HTMLInputElement).value.trim()
                   if (val && !video.tags.includes(val)) {
-                    const tags = [...video.tags, val]
-                    setVideo({ ...video, tags })
-                    save({ tags });
+                    const tags = [...video.tags, val]; setVideo({ ...video, tags }); save({ tags });
                     (e.target as HTMLInputElement).value = ''
                   }
                 }
@@ -200,14 +326,11 @@ export function VideoDetail({ id, onBack }: Props) {
             />
           </div>
 
-          {/* Claude Actions */}
-          <ActionButtons videoId={video.id} videoTitle={video.title} />
-
           {/* Meta */}
-          <div className="text-xs text-zinc-600 space-y-1">
-            <div>Created: {new Date(video.createdAt).toLocaleString()}</div>
-            <div>Updated: {new Date(video.updatedAt).toLocaleString()}</div>
-            <div className="font-mono text-[10px] text-zinc-700">{video.id}</div>
+          <div className="text-[11px] text-white/15 space-y-1 px-1">
+            <div>Created {new Date(video.createdAt).toLocaleDateString()}</div>
+            <div>Updated {new Date(video.updatedAt).toLocaleDateString()}</div>
+            <div className="font-mono text-[10px] text-white/10">{video.id}</div>
           </div>
         </div>
       </div>
@@ -215,102 +338,16 @@ export function VideoDetail({ id, onBack }: Props) {
   )
 }
 
-function Field({ label, value, placeholder, onChange, onBlur }: {
-  label: string; value: string; placeholder: string
-  onChange: (v: string) => void; onBlur: () => void
-}) {
-  return (
-    <div>
-      <label className="text-xs text-zinc-500 block mb-1">{label}</label>
-      <input
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onBlur={onBlur}
-        placeholder={placeholder}
-        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-600"
-      />
-    </div>
-  )
+function getWeekKey(dateStr: string): string {
+  const d = new Date(dateStr)
+  const day = d.getDay()
+  const monday = new Date(d)
+  monday.setDate(d.getDate() - ((day + 6) % 7))
+  const jan1 = new Date(monday.getFullYear(), 0, 1)
+  const weekNum = Math.ceil(((monday.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7)
+  return `${monday.getFullYear()}-W${String(weekNum).padStart(2, '0')}`
 }
 
-function PlatformSection({ label, platforms, video, setVideo, save }: {
-  label: string
-  platforms: Platform[]
-  video: Video
-  setVideo: (v: Video) => void
-  save: (updates: Partial<Video>) => Promise<void>
-}) {
-  const postedCount = platforms.filter(p => video.platforms[p]?.posted).length
-
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-2">
-        <h3 className="text-sm font-medium">{label}</h3>
-        {postedCount > 0 && (
-          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">
-            {postedCount}/{platforms.length} posted
-          </span>
-        )}
-      </div>
-      <div className="space-y-3">
-        {platforms.map(platform => {
-          const entry = video.platforms[platform] || { caption: '', hashtags: [], posted: false, url: null, postedAt: null }
-          return (
-            <div key={platform} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-zinc-400">{PLATFORM_LABELS[platform]}</span>
-                <label className="flex items-center gap-2 text-xs text-zinc-500">
-                  <input
-                    type="checkbox"
-                    checked={entry.posted}
-                    onChange={e => {
-                      const platforms = {
-                        ...video.platforms,
-                        [platform]: {
-                          ...entry,
-                          posted: e.target.checked,
-                          postedAt: e.target.checked ? new Date().toISOString() : null,
-                        },
-                      }
-                      setVideo({ ...video, platforms })
-                      save({ platforms })
-                    }}
-                    className="rounded"
-                  />
-                  Posted
-                </label>
-              </div>
-              <textarea
-                value={entry.caption}
-                onChange={e => {
-                  const platforms = {
-                    ...video.platforms,
-                    [platform]: { ...entry, caption: e.target.value },
-                  }
-                  setVideo({ ...video, platforms })
-                }}
-                onBlur={() => save({ platforms: video.platforms })}
-                placeholder={`${PLATFORM_LABELS[platform]} caption...`}
-                rows={2}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm outline-none focus:border-zinc-500 resize-none"
-              />
-              <input
-                value={entry.url || ''}
-                onChange={e => {
-                  const platforms = {
-                    ...video.platforms,
-                    [platform]: { ...entry, url: e.target.value || null },
-                  }
-                  setVideo({ ...video, platforms })
-                }}
-                onBlur={() => save({ platforms: video.platforms })}
-                placeholder="Post URL..."
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-xs outline-none focus:border-zinc-500 mt-2 text-zinc-400"
-              />
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
+function slugify(title: string): string {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 50)
 }

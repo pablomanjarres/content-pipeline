@@ -52,12 +52,18 @@ export function DailyMedia({ weekKey }: Props) {
 
   const handleUpload = async (date: string, files: FileList) => {
     setUploading(true)
-    const form = new FormData()
-    for (const f of files) form.append('files', f)
-    await fetch(`/api/media/upload/${weekKey}/${date}`, { method: 'POST', body: form })
-    const updated = await fetch(`/api/media/week/${weekKey}`).then(r => r.json())
-    setMediaByDay(updated)
-    setUploading(false)
+    try {
+      const form = new FormData()
+      for (const f of files) form.append('files', f)
+      const res = await fetch(`/api/media/upload/${weekKey}/${date}`, { method: 'POST', body: form })
+      if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
+      const updated = await fetch(`/api/media/week/${weekKey}`).then(r => r.json())
+      setMediaByDay(updated)
+    } catch (err) {
+      console.error('Upload error:', err)
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleRename = async (oldPath: string, newName: string) => {

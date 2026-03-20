@@ -13,7 +13,6 @@ type Page = 'dashboard' | 'pipeline' | 'ideas' | 'posts' | 'strategy' | 'video-d
 const NAV_ITEMS: { key: Page; label: string }[] = [
   { key: 'dashboard', label: 'Overview' },
   { key: 'pipeline', label: 'Pipeline' },
-  { key: 'posts', label: 'Posts' },
   { key: 'ideas', label: 'Ideas' },
   { key: 'strategy', label: 'Strategy' },
 ]
