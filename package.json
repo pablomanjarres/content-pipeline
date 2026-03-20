@@ -1,16 +1,43 @@
 {
   "name": "content-pipeline",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.ts",
   "scripts": {
     "dev": "concurrently \"vite\" \"tsx watch server/index.ts\"",
     "dev:client": "vite",
     "dev:server": "tsx watch server/index.ts",
+    "dev:electron": "concurrently \"vite\" \"tsx watch server/index.ts\" \"sleep 3 && electron .\"",
     "build": "tsc -b && vite build",
+    "build:electron": "npm run build && electron-builder --mac",
     "start": "NODE_ENV=production tsx server/index.ts",
     "lint": "eslint .",
     "preview": "vite preview"
+  },
+  "build": {
+    "appId": "com.contentpipeline.app",
+    "productName": "Content Pipeline",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "assets/app-icon.icns",
+      "target": ["dmg", "zip"],
+      "darkModeSupport": true
+    },
+    "files": [
+      "dist/**/*",
+      "server/**/*",
+      "data/**/*",
+      "electron/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "data",
+        "to": "data"
+      }
+    ]
   },
   "dependencies": {
     "@fontsource/instrument-serif": "^5.2.8",
@@ -35,6 +62,8 @@
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^9.2.1",
+    "electron": "^41.0.3",
+    "electron-builder": "^26.8.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",

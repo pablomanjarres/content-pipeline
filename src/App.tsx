@@ -61,10 +61,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 glass-strong">
-        <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-10">
+      {/* Nav — draggable for Electron title bar */}
+      <nav className="sticky top-0 z-50 glass-strong" style={{ WebkitAppRegion: 'drag' } as any}>
+        <div className="max-w-[1400px] mx-auto px-6 pl-20 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-10" style={{ WebkitAppRegion: 'no-drag' } as any}>
             <span className="font-semibold text-lg tracking-tight">
               Content <span className="font-serif italic font-normal text-white/70">Pipeline</span>
             </span>
