@@ -14,6 +14,11 @@ const MEDIA_DIR = path.join(__dirname, '..', '..', 'the-project-videos')
 app.use(cors())
 app.use(express.json())
 
+const PLATFORMS = ['instagram', 'tiktok', 'youtube', 'linkedin', 'x', 'reddit'] as const
+function defaultPlatforms() {
+  return Object.fromEntries(PLATFORMS.map(p => [p, { caption: '', hashtags: [], posted: false, url: null, postedAt: null }]))
+}
+
 // Ensure media dir exists
 if (!fs.existsSync(MEDIA_DIR)) {
   fs.mkdirSync(MEDIA_DIR, { recursive: true })
@@ -40,11 +45,7 @@ app.post('/api/videos', (req, res) => {
     hook: req.body.hook || '',
     script: req.body.script || '',
     cta: req.body.cta || '',
-    platforms: req.body.platforms || {
-      instagram: { caption: '', hashtags: [], posted: false, url: null, postedAt: null },
-      tiktok: { caption: '', hashtags: [], posted: false, url: null, postedAt: null },
-      youtube: { caption: '', hashtags: [], posted: false, url: null, postedAt: null },
-    },
+    platforms: req.body.platforms || defaultPlatforms(),
     clipPaths: req.body.clipPaths || [],
     tags: req.body.tags || [],
     notes: req.body.notes || '',
@@ -142,11 +143,7 @@ app.post('/api/ideas/:id/convert', (req, res) => {
     hook: idea.hook || '',
     script: '',
     cta: '',
-    platforms: {
-      instagram: { caption: '', hashtags: [], posted: false, url: null, postedAt: null },
-      tiktok: { caption: '', hashtags: [], posted: false, url: null, postedAt: null },
-      youtube: { caption: '', hashtags: [], posted: false, url: null, postedAt: null },
-    },
+    platforms: defaultPlatforms(),
     clipPaths: [],
     tags: idea.tags || [],
     notes: idea.description || '',

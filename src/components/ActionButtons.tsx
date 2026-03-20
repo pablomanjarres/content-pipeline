@@ -10,7 +10,7 @@ interface Props {
 const ACTIONS = [
   { type: 'write-hooks', label: 'Write Hooks', icon: '🎣', desc: 'Generate 3-5 punchy opening hooks' },
   { type: 'write-script', label: 'Write Script', icon: '📝', desc: 'Generate full script (Hook → Context → Proof → Payoff → CTA)' },
-  { type: 'write-captions', label: 'Write Captions', icon: '💬', desc: 'Generate platform captions for IG, TikTok, YT' },
+  { type: 'write-captions', label: 'Write Captions', icon: '💬', desc: 'Generate captions for all platforms (video + posts)' },
   { type: 'compress-clips', label: 'Compress Clips', icon: '🎬', desc: 'Concatenate linked clips into a single video via ffmpeg' },
   { type: 'suggest-edits', label: 'Suggest Edits', icon: '✂️', desc: 'Review content and suggest improvements' },
   { type: 'remotion-demo', label: 'Generate Demo', icon: '🎥', desc: 'Create a Remotion video demo with animations and transitions' },

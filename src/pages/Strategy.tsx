@@ -147,13 +147,38 @@ export function Strategy() {
       {/* Platform Distribution */}
       <section>
         <h2 className="text-sm text-zinc-500 uppercase tracking-wider mb-3">Platforms</h2>
-        <div className="flex gap-3">
-          {['TikTok', 'Instagram Reels', 'YouTube Shorts'].map(p => (
-            <div key={p} className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-center">
-              <div className="text-sm font-medium text-zinc-300">{p}</div>
-              <div className="text-[10px] text-zinc-600 mt-1">Same video, minor caption tweaks</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+            <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Video</div>
+            <div className="space-y-2">
+              {['TikTok', 'Instagram Reels', 'YouTube Shorts'].map(p => (
+                <div key={p} className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                  <span className="text-sm text-zinc-300">{p}</span>
+                </div>
+              ))}
             </div>
-          ))}
+            <div className="text-[10px] text-zinc-600 mt-2">Same video, minor caption tweaks</div>
+          </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+            <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Posts</div>
+            <div className="space-y-2">
+              {[
+                { name: 'LinkedIn', note: 'Professional angle, founder journey' },
+                { name: 'X', note: 'Short takes, threads, engagement' },
+                { name: 'Reddit', note: 'Community-specific, value-first' },
+              ].map(p => (
+                <div key={p.name} className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                  <div>
+                    <span className="text-sm text-zinc-300">{p.name}</span>
+                    <span className="text-[10px] text-zinc-600 ml-2">{p.note}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="text-[10px] text-zinc-600 mt-2">Repurpose video content as text posts</div>
+          </div>
         </div>
       </section>
     </div>
