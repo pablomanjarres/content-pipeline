@@ -17,15 +17,24 @@ export function VideoDetail({ id, onBack }: Props) {
   if (!video) return <div className="text-zinc-500">Loading...</div>
 
   const save = async (updates: Partial<Video>) => {
-    setSaving(true)
-    const updated = await updateVideo(id, updates)
-    setVideo(updated)
-    setTimeout(() => setSaving(false), 500)
+    try {
+      setSaving(true)
+      const updated = await updateVideo(id, updates)
+      setVideo(updated)
+      setTimeout(() => setSaving(false), 500)
+    } catch (e) {
+      console.error('Save failed:', e)
+      setSaving(false)
+    }
   }
 
   const changeStatus = async (status: Status) => {
-    const updated = await updateVideoStatus(id, status)
-    setVideo(updated)
+    try {
+      const updated = await updateVideoStatus(id, status)
+      setVideo(updated)
+    } catch (e) {
+      console.error('Status update failed:', e)
+    }
   }
 
   return (
