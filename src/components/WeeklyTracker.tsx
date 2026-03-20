@@ -150,18 +150,18 @@ export function WeeklyTracker({ onOpenVideo, onOpenPost }: Props) {
   const pct = totalSlots > 0 ? Math.round((completed / totalSlots) * 100) : 0
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 border border-zinc-800 p-6">
+    <div className="glass glass-border rounded-2xl p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">This Week</h2>
-          <div className="text-sm text-zinc-500 mt-0.5">{rangeLabel}</div>
+          <h2 className="text-xl font-bold tracking-tight">This <span className="font-serif italic font-normal text-white/70">Week</span></h2>
+          <div className="text-[13px] text-white/30 mt-0.5 font-medium">{rangeLabel}</div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 text-xs text-zinc-500">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-zinc-700" /> Open</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> In progress</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Posted</span>
+          <div className="flex items-center gap-3 text-[11px] text-white/30 font-medium">
+            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/10" /> Open</span>
+            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Working</span>
+            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Posted</span>
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold tabular-nums" style={{ color: pct === 100 ? '#22c55e' : pct > 50 ? '#f59e0b' : '#ef4444' }}>
