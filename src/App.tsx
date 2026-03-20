@@ -2,51 +2,63 @@ import { useState, useEffect, useCallback } from 'react'
 import { Dashboard } from './pages/Dashboard'
 import { Pipeline } from './pages/Pipeline'
 import { Ideas } from './pages/Ideas'
+import { Posts } from './pages/Posts'
 import { VideoDetail } from './pages/VideoDetail'
+import { PostDetail } from './pages/PostDetail'
 import { Strategy } from './pages/Strategy'
 
-type Page = 'dashboard' | 'pipeline' | 'ideas' | 'strategy' | 'video-detail'
+type Page = 'dashboard' | 'pipeline' | 'ideas' | 'posts' | 'strategy' | 'video-detail' | 'post-detail'
 
 const NAV_ITEMS: { key: Page; label: string }[] = [
   { key: 'dashboard', label: 'Overview' },
   { key: 'pipeline', label: 'Pipeline' },
+  { key: 'posts', label: 'Posts' },
   { key: 'ideas', label: 'Ideas' },
   { key: 'strategy', label: 'Strategy' },
 ]
 
-function parseHash(): { page: Page; videoId: string | null } {
+function parseHash(): { page: Page; itemId: string | null } {
   const hash = window.location.hash.slice(1) || 'dashboard'
   if (hash.startsWith('video/')) {
-    return { page: 'video-detail', videoId: hash.slice(6) }
+    return { page: 'video-detail', itemId: hash.slice(6) }
   }
-  if (['dashboard', 'pipeline', 'ideas', 'strategy'].includes(hash)) {
-    return { page: hash as Page, videoId: null }
+  if (hash.startsWith('post/')) {
+    return { page: 'post-detail', itemId: hash.slice(5) }
   }
-  return { page: 'dashboard', videoId: null }
+  if (['dashboard', 'pipeline', 'ideas', 'posts', 'strategy'].includes(hash)) {
+    return { page: hash as Page, itemId: null }
+  }
+  return { page: 'dashboard', itemId: null }
 }
 
 export default function App() {
   const [page, setPageState] = useState<Page>(() => parseHash().page)
-  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(() => parseHash().videoId)
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(() => parseHash().itemId)
 
   const setPage = useCallback((p: Page) => {
     setPageState(p)
-    if (p !== 'video-detail') {
+    if (p !== 'video-detail' && p !== 'post-detail') {
       window.location.hash = p
     }
   }, [])
 
   const openVideo = useCallback((id: string) => {
-    setSelectedVideoId(id)
+    setSelectedItemId(id)
     setPageState('video-detail')
     window.location.hash = `video/${id}`
   }, [])
 
+  const openPost = useCallback((id: string) => {
+    setSelectedItemId(id)
+    setPageState('post-detail')
+    window.location.hash = `post/${id}`
+  }, [])
+
   useEffect(() => {
     const onHashChange = () => {
-      const { page, videoId } = parseHash()
+      const { page, itemId } = parseHash()
       setPageState(page)
-      setSelectedVideoId(videoId)
+      setSelectedItemId(itemId)
     }
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
@@ -64,7 +76,7 @@ export default function App() {
                 key={key}
                 onClick={() => setPage(key)}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  (page === key || (key === 'pipeline' && page === 'video-detail'))
+                  (page === key || (key === 'pipeline' && page === 'video-detail') || (key === 'posts' && page === 'post-detail'))
                     ? 'bg-zinc-800 text-white'
                     : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
                 }`}
@@ -78,12 +90,16 @@ export default function App() {
 
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {page === 'dashboard' && <Dashboard onOpenVideo={openVideo} onNavigate={setPage} />}
+        {page === 'dashboard' && <Dashboard onOpenVideo={openVideo} onOpenPost={openPost} onNavigate={setPage} />}
         {page === 'pipeline' && <Pipeline onOpenVideo={openVideo} />}
+        {page === 'posts' && <Posts onOpenPost={openPost} />}
         {page === 'ideas' && <Ideas onOpenVideo={openVideo} />}
         {page === 'strategy' && <Strategy />}
-        {page === 'video-detail' && selectedVideoId && (
-          <VideoDetail id={selectedVideoId} onBack={() => setPage('pipeline')} />
+        {page === 'video-detail' && selectedItemId && (
+          <VideoDetail id={selectedItemId} onBack={() => setPage('pipeline')} />
+        )}
+        {page === 'post-detail' && selectedItemId && (
+          <PostDetail id={selectedItemId} onBack={() => setPage('posts')} />
         )}
       </main>
     </div>

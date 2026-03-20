@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react'
-import { getStats, getVideos } from '../lib/api'
-import { STATUS_COLORS, STATUS_LABELS, STATUS_ORDER, CATEGORY_COLORS, ALL_PLATFORMS, PLATFORM_LABELS, VIDEO_PLATFORMS, POST_PLATFORMS, type Video, type Platform } from '../lib/types'
+import { getStats, getVideos, getPosts } from '../lib/api'
+import { STATUS_COLORS, STATUS_LABELS, STATUS_ORDER, CATEGORY_COLORS, ALL_PLATFORMS, PLATFORM_LABELS, VIDEO_PLATFORMS, POST_PLATFORMS, POST_STATUS_ORDER, POST_STATUS_LABELS, POST_STATUS_COLORS, type Video, type Post, type Platform } from '../lib/types'
 
 interface Props {
   onOpenVideo: (id: string) => void
-  onNavigate: (page: 'dashboard' | 'pipeline' | 'ideas' | 'strategy') => void
+  onOpenPost: (id: string) => void
+  onNavigate: (page: 'dashboard' | 'pipeline' | 'ideas' | 'posts' | 'strategy') => void
 }
 
-export function Dashboard({ onOpenVideo, onNavigate }: Props) {
+export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
   const [stats, setStats] = useState<any>(null)
   const [videos, setVideos] = useState<Video[]>([])
+  const [posts, setPosts] = useState<Post[]>([])
 
   useEffect(() => {
     getStats().then(setStats)
     getVideos().then(setVideos)
+    getPosts().then(setPosts)
   }, [])
 
   if (!stats) return <div className="text-zinc-500">Loading...</div>
@@ -33,8 +36,9 @@ export function Dashboard({ onOpenVideo, onNavigate }: Props) {
   return (
     <div className="space-y-8">
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <StatCard label="Videos" value={stats.totalVideos} onClick={() => onNavigate('pipeline')} />
+        <StatCard label="Posts" value={stats.totalPosts} onClick={() => onNavigate('posts')} />
         <StatCard label="Ideas" value={stats.totalIdeas} onClick={() => onNavigate('ideas')} />
         <StatCard label="Clips" value={stats.totalClips} />
       </div>
@@ -53,6 +57,25 @@ export function Dashboard({ onOpenVideo, onNavigate }: Props) {
                 {stats.byStatus[s] || 0}
               </div>
               <div className="text-xs text-zinc-500 mt-1">{STATUS_LABELS[s]}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Posts Pipeline */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Posts</h2>
+        <div className="flex gap-2">
+          {POST_STATUS_ORDER.map(s => (
+            <div
+              key={s}
+              className="flex-1 rounded-lg bg-zinc-900 border border-zinc-800 p-3 text-center cursor-pointer hover:border-zinc-600 transition-colors"
+              onClick={() => onNavigate('posts')}
+            >
+              <div className="text-2xl font-bold" style={{ color: POST_STATUS_COLORS[s] }}>
+                {stats.postsByStatus[s] || 0}
+              </div>
+              <div className="text-xs text-zinc-500 mt-1">{POST_STATUS_LABELS[s]}</div>
             </div>
           ))}
         </div>

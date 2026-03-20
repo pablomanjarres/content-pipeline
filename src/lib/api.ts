@@ -1,4 +1,4 @@
-import type { Video, Clip, Idea, Status } from './types'
+import type { Video, Clip, Idea, Post, Status, PostStatus } from './types'
 
 const BASE = '/api'
 
@@ -30,13 +30,23 @@ export const createIdea = (data: Partial<Idea>) => json<Idea>('/ideas', { method
 export const convertIdea = (id: string) => json<Video>(`/ideas/${id}/convert`, { method: 'POST' })
 export const deleteIdea = (id: string) => json<{ success: boolean }>(`/ideas/${id}`, { method: 'DELETE' })
 
+// Posts
+export const getPosts = () => json<Post[]>('/posts')
+export const getPost = (id: string) => json<Post>(`/posts/${id}`)
+export const createPost = (data: Partial<Post>) => json<Post>('/posts', { method: 'POST', body: JSON.stringify(data) })
+export const updatePost = (id: string, data: Partial<Post>) => json<Post>(`/posts/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+export const updatePostStatus = (id: string, status: PostStatus) => json<Post>(`/posts/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
+export const deletePost = (id: string) => json<{ success: boolean }>(`/posts/${id}`, { method: 'DELETE' })
+
 // Stats
 export const getStats = () => json<{
   totalVideos: number
   totalClips: number
   totalIdeas: number
+  totalPosts: number
   byStatus: Record<string, number>
   byCategory: Record<string, number>
+  postsByStatus: Record<string, number>
 }>('/stats')
 
 // Media

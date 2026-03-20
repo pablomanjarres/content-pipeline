@@ -110,6 +110,66 @@ app.delete('/api/clips/:id', (req, res) => {
   }
 })
 
+// --- Posts ---
+app.get('/api/posts', (_req, res) => {
+  res.json(read('posts'))
+})
+
+app.get('/api/posts/:id', (req, res) => {
+  const post = findById('posts', req.params.id)
+  if (!post) return res.status(404).json({ error: 'Not found' })
+  res.json(post)
+})
+
+app.post('/api/posts', (req, res) => {
+  const now = new Date().toISOString()
+  const post = {
+    id: uuid(),
+    title: req.body.title || 'Untitled',
+    platform: req.body.platform || 'linkedin',
+    status: req.body.status || 'draft',
+    category: req.body.category || 'building',
+    content: req.body.content || '',
+    hook: req.body.hook || '',
+    cta: req.body.cta || '',
+    linkedVideoId: req.body.linkedVideoId || null,
+    url: req.body.url || null,
+    tags: req.body.tags || [],
+    notes: req.body.notes || '',
+    createdAt: now,
+    updatedAt: now,
+    postedAt: null,
+  }
+  upsert('posts', post)
+  res.status(201).json(post)
+})
+
+app.put('/api/posts/:id', (req, res) => {
+  const existing = findById('posts', req.params.id)
+  if (!existing) return res.status(404).json({ error: 'Not found' })
+  const updated = { ...existing, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() }
+  upsert('posts', updated)
+  res.json(updated)
+})
+
+app.patch('/api/posts/:id/status', (req, res) => {
+  const existing = findById<any>('posts', req.params.id)
+  if (!existing) return res.status(404).json({ error: 'Not found' })
+  existing.status = req.body.status
+  existing.updatedAt = new Date().toISOString()
+  if (req.body.status === 'posted') existing.postedAt = new Date().toISOString()
+  upsert('posts', existing)
+  res.json(existing)
+})
+
+app.delete('/api/posts/:id', (req, res) => {
+  if (remove('posts', req.params.id)) {
+    res.json({ success: true })
+  } else {
+    res.status(404).json({ error: 'Not found' })
+  }
+})
+
 // --- Ideas ---
 app.get('/api/ideas', (_req, res) => {
   res.json(read('ideas'))
@@ -179,6 +239,7 @@ app.get('/api/stats', (_req, res) => {
   const videos = read<any>('videos')
   const clips = read<any>('clips')
   const ideas = read<any>('ideas')
+  const posts = read<any>('posts')
 
   const byStatus: Record<string, number> = {}
   const byCategory: Record<string, number> = {}
@@ -187,12 +248,19 @@ app.get('/api/stats', (_req, res) => {
     byCategory[v.category] = (byCategory[v.category] || 0) + 1
   }
 
+  const postsByStatus: Record<string, number> = {}
+  for (const p of posts) {
+    postsByStatus[p.status] = (postsByStatus[p.status] || 0) + 1
+  }
+
   res.json({
     totalVideos: videos.length,
     totalClips: clips.length,
     totalIdeas: ideas.length,
+    totalPosts: posts.length,
     byStatus,
     byCategory,
+    postsByStatus,
   })
 })
 
