@@ -4,6 +4,7 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { v4 as uuid } from 'uuid'
+import multer from 'multer'
 import { read, write, findById, upsert, remove } from './storage.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -265,20 +266,85 @@ app.get('/api/stats', (_req, res) => {
 })
 
 // --- Weekly Tracker ---
-// weekly.json stores { "2026-W12": { "2026-03-16": { "x": true, "linkedin": false, ... } } }
+const weeklyPath = () => path.join(__dirname, '..', 'data', 'weekly.json')
+const readWeekly = () => JSON.parse(fs.readFileSync(weeklyPath(), 'utf-8'))
+const writeWeekly = (data: any) => fs.writeFileSync(weeklyPath(), JSON.stringify(data, null, 2))
+
 app.get('/api/weekly/:weekKey', (req, res) => {
-  const data = read<any>('weekly') as any
-  // weekly.json is an object, not array — read raw
-  const raw = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'weekly.json'), 'utf-8'))
+  const raw = readWeekly()
   res.json(raw[req.params.weekKey] || {})
 })
 
 app.put('/api/weekly/:weekKey', (req, res) => {
-  const filepath = path.join(__dirname, '..', 'data', 'weekly.json')
-  const raw = JSON.parse(fs.readFileSync(filepath, 'utf-8'))
+  const raw = readWeekly()
   raw[req.params.weekKey] = req.body
-  fs.writeFileSync(filepath, JSON.stringify(raw, null, 2))
+  writeWeekly(raw)
   res.json(raw[req.params.weekKey])
+})
+
+// --- Media Upload & Management ---
+function weekFolder(weekKey: string): string {
+  const dir = path.join(MEDIA_DIR, weekKey)
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+function dayFolder(weekKey: string, date: string): string {
+  const dir = path.join(weekFolder(weekKey), date)
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+// Upload files for a specific day
+const upload = multer({ dest: '/tmp/content-pipeline-uploads' })
+app.post('/api/media/upload/:weekKey/:date', upload.array('files', 20), (req, res) => {
+  const dest = dayFolder(req.params.weekKey, req.params.date)
+  const files = (req.files as Express.Multer.File[]) || []
+  const results = files.map(f => {
+    const target = path.join(dest, f.originalname)
+    fs.renameSync(f.path, target)
+    return { filename: f.originalname, path: target, size: f.size }
+  })
+  res.json(results)
+})
+
+// List files for a day
+app.get('/api/media/day/:weekKey/:date', (req, res) => {
+  const dir = path.join(MEDIA_DIR, req.params.weekKey, req.params.date)
+  if (!fs.existsSync(dir)) return res.json([])
+  const files = fs.readdirSync(dir).filter(f => !f.startsWith('.')).map(f => {
+    const stat = fs.statSync(path.join(dir, f))
+    return { filename: f, path: path.join(dir, f), size: stat.size, modified: stat.mtime }
+  })
+  res.json(files)
+})
+
+// List all files for a week
+app.get('/api/media/week/:weekKey', (req, res) => {
+  const dir = path.join(MEDIA_DIR, req.params.weekKey)
+  if (!fs.existsSync(dir)) return res.json({})
+  const result: Record<string, any[]> = {}
+  for (const sub of fs.readdirSync(dir)) {
+    const subPath = path.join(dir, sub)
+    if (fs.statSync(subPath).isDirectory()) {
+      result[sub] = fs.readdirSync(subPath).filter(f => !f.startsWith('.')).map(f => {
+        const stat = fs.statSync(path.join(subPath, f))
+        return { filename: f, path: path.join(subPath, f), size: stat.size }
+      })
+    }
+  }
+  res.json(result)
+})
+
+// Rename a file
+app.post('/api/media/rename', (req, res) => {
+  const { oldPath, newName } = req.body
+  if (!oldPath || !newName) return res.status(400).json({ error: 'oldPath and newName required' })
+  const dir = path.dirname(oldPath)
+  const newPath = path.join(dir, newName)
+  if (!fs.existsSync(oldPath)) return res.status(404).json({ error: 'File not found' })
+  fs.renameSync(oldPath, newPath)
+  res.json({ path: newPath, filename: newName })
 })
 
 // --- Actions (Claude Code queue) ---
