@@ -384,6 +384,53 @@ app.post('/api/projects/init', (req, res) => {
   res.status(201).json(meta)
 })
 
+// Browse available source clips (week raw uploads + past weeks)
+// MUST be before :weekKey/:slug to avoid route conflict
+app.get('/api/projects/browse-sources/:weekKey', (req, res) => {
+  const result: Record<string, any[]> = {}
+
+  const weekDir = path.join(MEDIA_DIR, req.params.weekKey)
+  if (fs.existsSync(weekDir)) {
+    for (const sub of fs.readdirSync(weekDir)) {
+      if (sub === 'projects') continue
+      const subPath = path.join(weekDir, sub)
+      if (fs.statSync(subPath).isDirectory()) {
+        const files = fs.readdirSync(subPath).filter(f => !f.startsWith('.')).map(f => ({
+          filename: f,
+          path: path.join(subPath, f),
+          size: fs.statSync(path.join(subPath, f)).size,
+          week: req.params.weekKey,
+          date: sub,
+        }))
+        if (files.length > 0) result[`${req.params.weekKey}/${sub}`] = files
+      }
+    }
+  }
+
+  const [yearStr, wStr] = req.params.weekKey.split('-W')
+  for (let w = parseInt(wStr) - 1; w >= Math.max(1, parseInt(wStr) - 2); w--) {
+    const prevKey = `${yearStr}-W${String(w).padStart(2, '0')}`
+    const prevDir = path.join(MEDIA_DIR, prevKey)
+    if (!fs.existsSync(prevDir)) continue
+    for (const sub of fs.readdirSync(prevDir)) {
+      if (sub === 'projects') continue
+      const subPath = path.join(prevDir, sub)
+      if (fs.statSync(subPath).isDirectory()) {
+        const files = fs.readdirSync(subPath).filter(f => !f.startsWith('.')).map(f => ({
+          filename: f,
+          path: path.join(subPath, f),
+          size: fs.statSync(path.join(subPath, f)).size,
+          week: prevKey,
+          date: sub,
+        }))
+        if (files.length > 0) result[`${prevKey}/${sub}`] = files
+      }
+    }
+  }
+
+  res.json(result)
+})
+
 // Get project info including files
 app.get('/api/projects/:weekKey/:slug', (req, res) => {
   const dir = path.join(MEDIA_DIR, req.params.weekKey, 'projects', req.params.slug)
@@ -476,54 +523,6 @@ app.post('/api/projects/:weekKey/:slug/exports', upload.single('file'), (req, re
   fs.renameSync(f.path, target)
 
   res.json({ filename: versionName, path: target, version: nextVersion })
-})
-
-// Browse available source clips (week raw uploads + past weeks)
-app.get('/api/projects/browse-sources/:weekKey', (req, res) => {
-  const result: Record<string, any[]> = {}
-
-  // Current week's raw uploads
-  const weekDir = path.join(MEDIA_DIR, req.params.weekKey)
-  if (fs.existsSync(weekDir)) {
-    for (const sub of fs.readdirSync(weekDir)) {
-      if (sub === 'projects') continue
-      const subPath = path.join(weekDir, sub)
-      if (fs.statSync(subPath).isDirectory()) {
-        const files = fs.readdirSync(subPath).filter(f => !f.startsWith('.')).map(f => ({
-          filename: f,
-          path: path.join(subPath, f),
-          size: fs.statSync(path.join(subPath, f)).size,
-          week: req.params.weekKey,
-          date: sub,
-        }))
-        if (files.length > 0) result[`${req.params.weekKey}/${sub}`] = files
-      }
-    }
-  }
-
-  // Also check previous 2 weeks
-  const [yearStr, wStr] = req.params.weekKey.split('-W')
-  for (let w = parseInt(wStr) - 1; w >= Math.max(1, parseInt(wStr) - 2); w--) {
-    const prevKey = `${yearStr}-W${String(w).padStart(2, '0')}`
-    const prevDir = path.join(MEDIA_DIR, prevKey)
-    if (!fs.existsSync(prevDir)) continue
-    for (const sub of fs.readdirSync(prevDir)) {
-      if (sub === 'projects') continue
-      const subPath = path.join(prevDir, sub)
-      if (fs.statSync(subPath).isDirectory()) {
-        const files = fs.readdirSync(subPath).filter(f => !f.startsWith('.')).map(f => ({
-          filename: f,
-          path: path.join(subPath, f),
-          size: fs.statSync(path.join(subPath, f)).size,
-          week: prevKey,
-          date: sub,
-        }))
-        if (files.length > 0) result[`${prevKey}/${sub}`] = files
-      }
-    }
-  }
-
-  res.json(result)
 })
 
 // --- Actions (Claude Code queue) ---
