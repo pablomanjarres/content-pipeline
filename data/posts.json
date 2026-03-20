@@ -1,1 +1,19 @@
-[]
+[
+  {
+    "id": "68991d87-4cbf-461c-b9f7-9db969682634",
+    "title": "X — Fri Mar 20",
+    "platform": "x",
+    "status": "draft",
+    "category": "building",
+    "content": "",
+    "hook": "",
+    "cta": "",
+    "linkedVideoId": null,
+    "url": null,
+    "tags": [],
+    "notes": "",
+    "createdAt": "2026-03-20T06:46:37.844Z",
+    "updatedAt": "2026-03-20T06:46:37.844Z",
+    "postedAt": null
+  }
+]

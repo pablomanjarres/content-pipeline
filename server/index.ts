@@ -347,6 +347,162 @@ app.post('/api/media/rename', (req, res) => {
   res.json({ path: newPath, filename: newName })
 })
 
+// --- Project Folders ---
+// Each content piece (reel, post) gets its own project folder
+// nella-videos/{weekKey}/projects/{slug}/
+//   project.json, script.md, sources/, exports/
+
+function projectDir(weekKey: string, slug: string): string {
+  const dir = path.join(MEDIA_DIR, weekKey, 'projects', slug)
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
+    fs.mkdirSync(path.join(dir, 'sources'), { recursive: true })
+    fs.mkdirSync(path.join(dir, 'exports'), { recursive: true })
+  }
+  return dir
+}
+
+// Create/get project folder for a content piece
+app.post('/api/projects/init', (req, res) => {
+  const { weekKey, slug, title, type } = req.body
+  const dir = projectDir(weekKey, slug)
+  const metaPath = path.join(dir, 'project.json')
+
+  if (fs.existsSync(metaPath)) {
+    return res.json(JSON.parse(fs.readFileSync(metaPath, 'utf-8')))
+  }
+
+  const meta = { title, type, slug, weekKey, createdAt: new Date().toISOString() }
+  fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2))
+
+  // Create empty script.md
+  const scriptContent = type === 'post'
+    ? `# ${title}\n\n## Content\n\n\n\n## CTA\n\n`
+    : `# ${title}\n\n## Hook\n\n\n\n## Script\n\n\n\n## CTA\n\n`
+  fs.writeFileSync(path.join(dir, 'script.md'), scriptContent)
+
+  res.status(201).json(meta)
+})
+
+// Get project info including files
+app.get('/api/projects/:weekKey/:slug', (req, res) => {
+  const dir = path.join(MEDIA_DIR, req.params.weekKey, 'projects', req.params.slug)
+  if (!fs.existsSync(dir)) return res.status(404).json({ error: 'Not found' })
+
+  const metaPath = path.join(dir, 'project.json')
+  const meta = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, 'utf-8')) : {}
+
+  const scriptPath = path.join(dir, 'script.md')
+  const script = fs.existsSync(scriptPath) ? fs.readFileSync(scriptPath, 'utf-8') : ''
+
+  const listDir = (sub: string) => {
+    const p = path.join(dir, sub)
+    if (!fs.existsSync(p)) return []
+    return fs.readdirSync(p).filter(f => !f.startsWith('.')).map(f => {
+      const stat = fs.statSync(path.join(p, f))
+      return { filename: f, path: path.join(p, f), size: stat.size }
+    })
+  }
+
+  res.json({
+    ...meta,
+    folderPath: dir,
+    script,
+    sources: listDir('sources'),
+    exports: listDir('exports'),
+  })
+})
+
+// Save script.md
+app.put('/api/projects/:weekKey/:slug/script', (req, res) => {
+  const dir = path.join(MEDIA_DIR, req.params.weekKey, 'projects', req.params.slug)
+  if (!fs.existsSync(dir)) return res.status(404).json({ error: 'Not found' })
+  fs.writeFileSync(path.join(dir, 'script.md'), req.body.content)
+  res.json({ success: true })
+})
+
+// Copy source clips into project
+app.post('/api/projects/:weekKey/:slug/sources', (req, res) => {
+  const dir = projectDir(req.params.weekKey, req.params.slug)
+  const sourcesDir = path.join(dir, 'sources')
+  const { files } = req.body // array of { path, filename }
+  const results: any[] = []
+
+  for (const f of files) {
+    if (!fs.existsSync(f.path)) continue
+    const target = path.join(sourcesDir, f.filename)
+    fs.copyFileSync(f.path, target)
+    results.push({ filename: f.filename, path: target })
+  }
+  res.json(results)
+})
+
+// Upload export version
+app.post('/api/projects/:weekKey/:slug/exports', upload.single('file'), (req, res) => {
+  const dir = projectDir(req.params.weekKey, req.params.slug)
+  const exportsDir = path.join(dir, 'exports')
+  const f = req.file as Express.Multer.File
+  if (!f) return res.status(400).json({ error: 'No file' })
+
+  // Auto-version: v1, v2, v3...
+  const existing = fs.readdirSync(exportsDir).filter(n => n.startsWith('v'))
+  const nextVersion = existing.length + 1
+  const ext = path.extname(f.originalname) || '.mp4'
+  const versionName = `v${nextVersion}${ext}`
+  const target = path.join(exportsDir, versionName)
+  fs.renameSync(f.path, target)
+
+  res.json({ filename: versionName, path: target, version: nextVersion })
+})
+
+// Browse available source clips (week raw uploads + past weeks)
+app.get('/api/projects/browse-sources/:weekKey', (req, res) => {
+  const result: Record<string, any[]> = {}
+
+  // Current week's raw uploads
+  const weekDir = path.join(MEDIA_DIR, req.params.weekKey)
+  if (fs.existsSync(weekDir)) {
+    for (const sub of fs.readdirSync(weekDir)) {
+      if (sub === 'projects') continue
+      const subPath = path.join(weekDir, sub)
+      if (fs.statSync(subPath).isDirectory()) {
+        const files = fs.readdirSync(subPath).filter(f => !f.startsWith('.')).map(f => ({
+          filename: f,
+          path: path.join(subPath, f),
+          size: fs.statSync(path.join(subPath, f)).size,
+          week: req.params.weekKey,
+          date: sub,
+        }))
+        if (files.length > 0) result[`${req.params.weekKey}/${sub}`] = files
+      }
+    }
+  }
+
+  // Also check previous 2 weeks
+  const [yearStr, wStr] = req.params.weekKey.split('-W')
+  for (let w = parseInt(wStr) - 1; w >= Math.max(1, parseInt(wStr) - 2); w--) {
+    const prevKey = `${yearStr}-W${String(w).padStart(2, '0')}`
+    const prevDir = path.join(MEDIA_DIR, prevKey)
+    if (!fs.existsSync(prevDir)) continue
+    for (const sub of fs.readdirSync(prevDir)) {
+      if (sub === 'projects') continue
+      const subPath = path.join(prevDir, sub)
+      if (fs.statSync(subPath).isDirectory()) {
+        const files = fs.readdirSync(subPath).filter(f => !f.startsWith('.')).map(f => ({
+          filename: f,
+          path: path.join(subPath, f),
+          size: fs.statSync(path.join(subPath, f)).size,
+          week: prevKey,
+          date: sub,
+        }))
+        if (files.length > 0) result[`${prevKey}/${sub}`] = files
+      }
+    }
+  }
+
+  res.json(result)
+})
+
 // --- Actions (Claude Code queue) ---
 app.get('/api/actions', (_req, res) => {
   res.json(read('actions'))
