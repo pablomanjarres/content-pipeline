@@ -72,8 +72,8 @@ export function PostDetail({ id, onBack }: Props) {
 
   const uploadAsset = async (files: FileList) => {
     const form = new FormData()
-    form.append('file', files[0])
-    await fetch(`/api/projects/${weekKey}/${slug}/exports`, { method: 'POST', body: form })
+    for (const f of files) form.append('files', f)
+    await fetch(`/api/projects/${weekKey}/${slug}/upload`, { method: 'POST', body: form })
     load()
   }
 

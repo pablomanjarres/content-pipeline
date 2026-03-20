@@ -93,5 +93,121 @@
     "notes": "",
     "createdAt": "2026-03-20T06:22:31.661Z",
     "updatedAt": "2026-03-20T06:24:40.619Z"
+  },
+  {
+    "id": "c8140333-703c-48de-8caf-a6baac312cf6",
+    "title": "TikTok — Fri Mar 20",
+    "status": "idea",
+    "category": "building",
+    "hook": "",
+    "script": "",
+    "cta": "",
+    "platforms": {
+      "instagram": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "tiktok": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "youtube": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "linkedin": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "x": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "reddit": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      }
+    },
+    "clipPaths": [],
+    "tags": [],
+    "notes": "",
+    "createdAt": "2026-03-20T06:50:18.326Z",
+    "updatedAt": "2026-03-20T06:50:18.326Z"
+  },
+  {
+    "id": "797fe9f3-29c5-481f-b2d1-a65ce46421d0",
+    "title": "YT Short — Fri Mar 20",
+    "status": "idea",
+    "category": "building",
+    "hook": "",
+    "script": "",
+    "cta": "",
+    "platforms": {
+      "instagram": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "tiktok": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "youtube": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "linkedin": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "x": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "reddit": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      }
+    },
+    "clipPaths": [],
+    "tags": [],
+    "notes": "",
+    "createdAt": "2026-03-20T06:50:29.837Z",
+    "updatedAt": "2026-03-20T06:50:29.837Z"
   }
 ]

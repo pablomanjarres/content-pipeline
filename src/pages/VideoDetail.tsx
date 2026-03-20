@@ -26,7 +26,9 @@ export function VideoDetail({ id, onBack }: Props) {
   const [saving, setSaving] = useState(false)
   const [browseSources, setBrowseSources] = useState<Record<string, SourceFile[]>>({})
   const [showBrowser, setShowBrowser] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const exportRef = useRef<HTMLInputElement>(null)
+  const sourceUploadRef = useRef<HTMLInputElement>(null)
 
   const load = async () => {
     const v = await getVideo(id)
@@ -94,6 +96,20 @@ export function VideoDetail({ id, onBack }: Props) {
     })
     setShowBrowser(false)
     load()
+  }
+
+  const uploadSources = async (fileList: FileList) => {
+    setUploading(true)
+    try {
+      const form = new FormData()
+      for (const f of fileList) form.append('files', f)
+      await fetch(`/api/projects/${weekKey}/${slug}/upload`, { method: 'POST', body: form })
+      load()
+    } catch (err) {
+      console.error('Upload error:', err)
+    } finally {
+      setUploading(false)
+    }
   }
 
   const uploadExport = async (files: FileList) => {
@@ -171,10 +187,16 @@ export function VideoDetail({ id, onBack }: Props) {
           <div className="glass glass-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium">Source Clips</label>
-              <button onClick={loadBrowseSources} className="text-[11px] text-white/40 hover:text-white/70 font-medium transition-colors">+ Add from library</button>
+              <div className="flex gap-2">
+                <button onClick={() => sourceUploadRef.current?.click()} className="text-[11px] text-white/40 hover:text-white/70 font-medium transition-colors">
+                  {uploading ? 'Uploading...' : '+ Upload clips'}
+                </button>
+                <button onClick={loadBrowseSources} className="text-[11px] text-white/40 hover:text-white/70 font-medium transition-colors">+ From library</button>
+              </div>
             </div>
+            <input ref={sourceUploadRef} type="file" multiple accept="video/*,image/*" className="hidden" onChange={e => { if (e.target.files?.length) uploadSources(e.target.files) }} />
             {project?.sources.length === 0 && !showBrowser && (
-              <p className="text-sm text-white/15">No source clips. Add from your weekly uploads.</p>
+              <p className="text-sm text-white/15">No source clips yet. Upload or pick from your library.</p>
             )}
             {project?.sources.map(f => (
               <div key={f.path} className="flex items-center gap-2 py-1.5">

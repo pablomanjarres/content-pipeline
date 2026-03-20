@@ -421,7 +421,7 @@ app.put('/api/projects/:weekKey/:slug/script', (req, res) => {
   res.json({ success: true })
 })
 
-// Copy source clips into project
+// Copy source clips into project (from existing files)
 app.post('/api/projects/:weekKey/:slug/sources', (req, res) => {
   const dir = projectDir(req.params.weekKey, req.params.slug)
   const sourcesDir = path.join(dir, 'sources')
@@ -434,6 +434,29 @@ app.post('/api/projects/:weekKey/:slug/sources', (req, res) => {
     fs.copyFileSync(f.path, target)
     results.push({ filename: f.filename, path: target })
   }
+  res.json(results)
+})
+
+// Upload files into project sources AND week's daily folder
+app.post('/api/projects/:weekKey/:slug/upload', upload.array('files', 20), (req, res) => {
+  const dir = projectDir(req.params.weekKey, req.params.slug)
+  const sourcesDir = path.join(dir, 'sources')
+  // Also save to the week's daily folder (today's date)
+  const today = new Date().toISOString().split('T')[0]
+  const dailyDir = dayFolder(req.params.weekKey, today)
+
+  const files = (req.files as Express.Multer.File[]) || []
+  const results = files.map(f => {
+    const projectTarget = path.join(sourcesDir, f.originalname)
+    const dailyTarget = path.join(dailyDir, f.originalname)
+
+    // Copy to project sources
+    fs.copyFileSync(f.path, projectTarget)
+    // Move to weekly daily folder (the "global" weekly copy)
+    fs.renameSync(f.path, dailyTarget)
+
+    return { filename: f.originalname, projectPath: projectTarget, weeklyPath: dailyTarget, size: f.size }
+  })
   res.json(results)
 })
 
