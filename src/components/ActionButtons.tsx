@@ -13,6 +13,7 @@ const ACTIONS = [
   { type: 'write-captions', label: 'Write Captions', icon: '💬', desc: 'Generate platform captions for IG, TikTok, YT' },
   { type: 'compress-clips', label: 'Compress Clips', icon: '🎬', desc: 'Concatenate linked clips into a single video via ffmpeg' },
   { type: 'suggest-edits', label: 'Suggest Edits', icon: '✂️', desc: 'Review content and suggest improvements' },
+  { type: 'remotion-demo', label: 'Generate Demo', icon: '🎥', desc: 'Create a Remotion video demo with animations and transitions' },
 ] as const
 
 export function ActionButtons({ videoId, videoTitle, compact }: Props) {
