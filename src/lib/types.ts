@@ -64,6 +64,44 @@ export interface Idea {
   createdAt: string
 }
 
+export type PostStatus = 'draft' | 'written' | 'scheduled' | 'posted'
+
+export type PostPlatform = 'linkedin' | 'x' | 'reddit'
+
+export interface Post {
+  id: string
+  title: string
+  platform: PostPlatform
+  status: PostStatus
+  category: Category
+  content: string
+  hook: string
+  cta: string
+  linkedVideoId: string | null
+  url: string | null
+  tags: string[]
+  notes: string
+  createdAt: string
+  updatedAt: string
+  postedAt: string | null
+}
+
+export const POST_STATUS_ORDER: PostStatus[] = ['draft', 'written', 'scheduled', 'posted']
+
+export const POST_STATUS_LABELS: Record<PostStatus, string> = {
+  draft: 'Draft',
+  written: 'Written',
+  scheduled: 'Scheduled',
+  posted: 'Posted',
+}
+
+export const POST_STATUS_COLORS: Record<PostStatus, string> = {
+  draft: '#f59e0b',
+  written: '#8b5cf6',
+  scheduled: '#06b6d4',
+  posted: '#22c55e',
+}
+
 export const STATUS_ORDER: Status[] = ['idea', 'scripted', 'filming', 'editing', 'ready', 'scheduled', 'posted']
 
 export const STATUS_LABELS: Record<Status, string> = {
