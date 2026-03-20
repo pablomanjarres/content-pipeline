@@ -1,42 +1,5 @@
 [
   {
-    "id": "ba62eb85-ea61-472d-8f93-32315ef7c930",
-    "title": "tyest",
-    "status": "scripted",
-    "category": "studying",
-    "hook": "",
-    "script": "ada",
-    "cta": "",
-    "platforms": {
-      "instagram": {
-        "caption": "ad",
-        "hashtags": [],
-        "posted": false,
-        "url": null,
-        "postedAt": null
-      },
-      "tiktok": {
-        "caption": "",
-        "hashtags": [],
-        "posted": false,
-        "url": null,
-        "postedAt": null
-      },
-      "youtube": {
-        "caption": "",
-        "hashtags": [],
-        "posted": false,
-        "url": null,
-        "postedAt": null
-      }
-    },
-    "clipPaths": [],
-    "tags": [],
-    "notes": "",
-    "createdAt": "2026-03-20T04:11:15.031Z",
-    "updatedAt": "2026-03-20T04:44:18.749Z"
-  },
-  {
     "id": "ca7194e8-c31b-4092-9ddc-927e857a4d7c",
     "title": "IG Reel — Fri Mar 20",
     "status": "idea",
@@ -92,7 +55,7 @@
     "tags": [],
     "notes": "",
     "createdAt": "2026-03-20T06:22:31.661Z",
-    "updatedAt": "2026-03-20T06:24:40.619Z"
+    "updatedAt": "2026-03-20T07:10:23.738Z"
   },
   {
     "id": "c8140333-703c-48de-8caf-a6baac312cf6",
@@ -209,5 +172,63 @@
     "notes": "",
     "createdAt": "2026-03-20T06:50:29.837Z",
     "updatedAt": "2026-03-20T06:50:29.837Z"
+  },
+  {
+    "id": "1c8a7dc0-6050-4eaf-9ef2-988b8c938d8a",
+    "title": "YT Video — Week of Mar 16",
+    "status": "idea",
+    "category": "building",
+    "hook": "",
+    "script": "",
+    "cta": "",
+    "platforms": {
+      "instagram": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "tiktok": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "youtube": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "linkedin": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "x": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      },
+      "reddit": {
+        "caption": "",
+        "hashtags": [],
+        "posted": false,
+        "url": null,
+        "postedAt": null
+      }
+    },
+    "clipPaths": [],
+    "tags": [],
+    "notes": "",
+    "createdAt": "2026-03-20T07:09:44.757Z",
+    "updatedAt": "2026-03-20T07:10:08.077Z"
   }
 ]

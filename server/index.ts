@@ -290,7 +290,7 @@ function weekFolder(weekKey: string): string {
 }
 
 function dayFolder(weekKey: string, date: string): string {
-  const dir = path.join(weekFolder(weekKey), date)
+  const dir = path.join(weekFolder(weekKey), `uploads-${date}`)
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
   return dir
 }
@@ -310,7 +310,7 @@ app.post('/api/media/upload/:weekKey/:date', upload.array('files', 20), (req, re
 
 // List files for a day
 app.get('/api/media/day/:weekKey/:date', (req, res) => {
-  const dir = path.join(MEDIA_DIR, req.params.weekKey, req.params.date)
+  const dir = path.join(MEDIA_DIR, req.params.weekKey, `uploads-${req.params.date}`)
   if (!fs.existsSync(dir)) return res.json([])
   const files = fs.readdirSync(dir).filter(f => !f.startsWith('.')).map(f => {
     const stat = fs.statSync(path.join(dir, f))
@@ -349,11 +349,11 @@ app.post('/api/media/rename', (req, res) => {
 
 // --- Project Folders ---
 // Each content piece (reel, post) gets its own project folder
-// nella-videos/{weekKey}/projects/{slug}/
+// nella-videos/{weekKey}/content/{slug}/
 //   project.json, script.md, sources/, exports/
 
 function projectDir(weekKey: string, slug: string): string {
-  const dir = path.join(MEDIA_DIR, weekKey, 'projects', slug)
+  const dir = path.join(MEDIA_DIR, weekKey, 'content', slug)
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
     fs.mkdirSync(path.join(dir, 'sources'), { recursive: true })
@@ -392,7 +392,7 @@ app.get('/api/projects/browse-sources/:weekKey', (req, res) => {
   const weekDir = path.join(MEDIA_DIR, req.params.weekKey)
   if (fs.existsSync(weekDir)) {
     for (const sub of fs.readdirSync(weekDir)) {
-      if (sub === 'projects') continue
+      if (sub === 'content') continue
       const subPath = path.join(weekDir, sub)
       if (fs.statSync(subPath).isDirectory()) {
         const files = fs.readdirSync(subPath).filter(f => !f.startsWith('.')).map(f => ({
@@ -413,7 +413,7 @@ app.get('/api/projects/browse-sources/:weekKey', (req, res) => {
     const prevDir = path.join(MEDIA_DIR, prevKey)
     if (!fs.existsSync(prevDir)) continue
     for (const sub of fs.readdirSync(prevDir)) {
-      if (sub === 'projects') continue
+      if (sub === 'content') continue
       const subPath = path.join(prevDir, sub)
       if (fs.statSync(subPath).isDirectory()) {
         const files = fs.readdirSync(subPath).filter(f => !f.startsWith('.')).map(f => ({
@@ -433,7 +433,7 @@ app.get('/api/projects/browse-sources/:weekKey', (req, res) => {
 
 // Get project info including files
 app.get('/api/projects/:weekKey/:slug', (req, res) => {
-  const dir = path.join(MEDIA_DIR, req.params.weekKey, 'projects', req.params.slug)
+  const dir = path.join(MEDIA_DIR, req.params.weekKey, 'content', req.params.slug)
   if (!fs.existsSync(dir)) return res.status(404).json({ error: 'Not found' })
 
   const metaPath = path.join(dir, 'project.json')
@@ -462,7 +462,7 @@ app.get('/api/projects/:weekKey/:slug', (req, res) => {
 
 // Save script.md
 app.put('/api/projects/:weekKey/:slug/script', (req, res) => {
-  const dir = path.join(MEDIA_DIR, req.params.weekKey, 'projects', req.params.slug)
+  const dir = path.join(MEDIA_DIR, req.params.weekKey, 'content', req.params.slug)
   if (!fs.existsSync(dir)) return res.status(404).json({ error: 'Not found' })
   fs.writeFileSync(path.join(dir, 'script.md'), req.body.content)
   res.json({ success: true })

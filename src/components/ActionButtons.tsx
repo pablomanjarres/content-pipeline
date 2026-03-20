@@ -51,24 +51,25 @@ export function ActionButtons({ videoId, videoTitle, compact }: Props) {
   const actionIcon = (type: string) => ACTIONS.find(a => a.type === type)?.icon || '?'
 
   if (compact) {
+    const quickActions = ACTIONS.filter(a => ['write-hooks', 'write-script', 'write-captions'].includes(a.type))
     return (
-      <div className="flex gap-1 items-center">
-        {ACTIONS.map(a => (
+      <div className="flex gap-1.5 items-center">
+        {quickActions.map(a => (
           <button
             key={a.type}
             onClick={e => { e.stopPropagation(); send(a.type) }}
             title={a.label}
-            className={`text-xs px-1.5 py-0.5 rounded transition-colors ${
+            className={`text-[10px] px-2 py-1 rounded-md transition-colors ${
               sent === a.type
-                ? 'bg-emerald-900/50 text-emerald-400'
-                : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700'
+                ? 'bg-emerald-500/15 text-emerald-400'
+                : 'bg-white/[0.04] text-white/30 hover:text-white/60 hover:bg-white/[0.08]'
             }`}
           >
             {sent === a.type ? '✓' : a.icon}
           </button>
         ))}
         {queue.length > 0 && (
-          <span className="text-[10px] text-amber-400 ml-1">{queue.length} queued</span>
+          <span className="text-[9px] text-amber-400/70">{queue.length}q</span>
         )}
       </div>
     )
