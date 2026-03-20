@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import { getStats, getVideos, getPosts } from '../lib/api'
 import { STATUS_COLORS, STATUS_LABELS, STATUS_ORDER, CATEGORY_COLORS, POST_STATUS_ORDER, POST_STATUS_LABELS, POST_STATUS_COLORS, type Video, type Post } from '../lib/types'
 import { WeeklyTracker } from '../components/WeeklyTracker'
@@ -20,6 +21,12 @@ function getWeekKey() {
   return `${monday.getFullYear()}-W${String(weekNum).padStart(2, '0')}`
 }
 
+const fade = (delay: number) => ({
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.5, delay, ease: [0.4, 0, 0.2, 1] },
+})
+
 export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
   const [stats, setStats] = useState<any>(null)
   const [videos, setVideos] = useState<Video[]>([])
@@ -33,56 +40,61 @@ export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
   }, [])
 
   if (!stats) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="text-zinc-600 text-sm">Loading dashboard...</div>
+    <div className="flex items-center justify-center h-[60vh]">
+      <div className="text-white/20 text-sm font-medium">Loading...</div>
     </div>
   )
 
-  const recent = [...videos, ...posts.map(p => ({ ...p, updatedAt: p.updatedAt }))]
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  const recent = [...videos, ...posts.map(p => ({ ...p }))]
+    .sort((a: any, b: any) => b.updatedAt.localeCompare(a.updatedAt))
     .slice(0, 6)
 
   return (
-    <div className="space-y-6">
-      {/* Stats Row */}
-      <div className="grid grid-cols-4 gap-3">
+    <div className="space-y-8">
+      {/* Hero Stats */}
+      <motion.div {...fade(0)} className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Videos', value: stats.totalVideos, color: '#3b82f6', page: 'pipeline' as const },
-          { label: 'Posts', value: stats.totalPosts, color: '#8b5cf6', page: 'posts' as const },
-          { label: 'Ideas', value: stats.totalIdeas, color: '#f59e0b', page: 'ideas' as const },
-          { label: 'Clips', value: stats.totalClips, color: '#6b7280', page: null },
+          { label: 'Videos', value: stats.totalVideos, gradient: 'from-blue-500/10 to-transparent', accent: '#3b82f6', page: 'pipeline' as const },
+          { label: 'Posts', value: stats.totalPosts, gradient: 'from-purple-500/10 to-transparent', accent: '#8b5cf6', page: 'posts' as const },
+          { label: 'Ideas', value: stats.totalIdeas, gradient: 'from-amber-500/10 to-transparent', accent: '#f59e0b', page: 'ideas' as const },
+          { label: 'Clips', value: stats.totalClips, gradient: 'from-white/[0.03] to-transparent', accent: '#525252', page: null },
         ].map(s => (
-          <div
+          <motion.div
             key={s.label}
+            whileHover={s.page ? { scale: 1.02 } : undefined}
+            whileTap={s.page ? { scale: 0.98 } : undefined}
             onClick={() => s.page && onNavigate(s.page)}
-            className={`rounded-xl bg-zinc-900 border border-zinc-800 p-4 ${s.page ? 'cursor-pointer hover:border-zinc-600' : ''} transition-colors`}
+            className={`glass glass-border rounded-2xl p-5 bg-gradient-to-br ${s.gradient} ${s.page ? 'cursor-pointer' : ''}`}
           >
-            <div className="text-3xl font-bold tabular-nums" style={{ color: s.value > 0 ? s.color : '#3f3f46' }}>{s.value}</div>
-            <div className="text-xs text-zinc-500 mt-1 font-medium">{s.label}</div>
-          </div>
+            <div className="text-4xl font-bold tabular-nums tracking-tight" style={{ color: s.value > 0 ? s.accent : 'rgba(255,255,255,0.1)' }}>
+              {s.value}
+            </div>
+            <div className="text-[13px] text-white/40 mt-1.5 font-medium">{s.label}</div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
-      {/* Weekly Tracker — the main event */}
-      <WeeklyTracker onOpenVideo={onOpenVideo} onOpenPost={onOpenPost} />
+      {/* Weekly Tracker */}
+      <motion.div {...fade(0.1)}>
+        <WeeklyTracker onOpenVideo={onOpenVideo} onOpenPost={onOpenPost} />
+      </motion.div>
 
       {/* Two-column: Pipelines + Media */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Pipelines */}
-        <div className="lg:col-span-2 space-y-4">
+        <motion.div {...fade(0.2)} className="lg:col-span-2 space-y-5">
           {/* Video Pipeline */}
-          <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-zinc-300">Video Pipeline</h3>
-              <button onClick={() => onNavigate('pipeline')} className="text-[10px] text-zinc-500 hover:text-zinc-300">View all →</button>
+          <div className="glass glass-border rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider">Video Pipeline</h3>
+              <button onClick={() => onNavigate('pipeline')} className="text-[11px] text-white/30 hover:text-white/60 transition-colors font-medium">View all →</button>
             </div>
-            <div className="flex gap-1.5">
+            <div className="flex gap-2">
               {STATUS_ORDER.map(s => {
                 const count = stats.byStatus[s] || 0
                 return (
-                  <div key={s} className="flex-1 text-center">
-                    <div className="text-lg font-bold tabular-nums" style={{ color: count > 0 ? STATUS_COLORS[s] : '#3f3f46' }}>{count}</div>
-                    <div className="text-[10px] text-zinc-600 mt-0.5">{STATUS_LABELS[s]}</div>
+                  <div key={s} className="flex-1 text-center rounded-xl bg-white/[0.02] py-3">
+                    <div className="text-xl font-bold tabular-nums" style={{ color: count > 0 ? STATUS_COLORS[s] : 'rgba(255,255,255,0.08)' }}>{count}</div>
+                    <div className="text-[10px] text-white/25 mt-1 font-medium">{STATUS_LABELS[s]}</div>
                   </div>
                 )
               })}
@@ -90,41 +102,41 @@ export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
           </div>
 
           {/* Post Pipeline */}
-          <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-zinc-300">Post Pipeline</h3>
-              <button onClick={() => onNavigate('posts')} className="text-[10px] text-zinc-500 hover:text-zinc-300">View all →</button>
+          <div className="glass glass-border rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider">Post Pipeline</h3>
+              <button onClick={() => onNavigate('posts')} className="text-[11px] text-white/30 hover:text-white/60 transition-colors font-medium">View all →</button>
             </div>
-            <div className="flex gap-1.5">
+            <div className="flex gap-2">
               {POST_STATUS_ORDER.map(s => {
                 const count = stats.postsByStatus[s] || 0
                 return (
-                  <div key={s} className="flex-1 text-center">
-                    <div className="text-lg font-bold tabular-nums" style={{ color: count > 0 ? POST_STATUS_COLORS[s] : '#3f3f46' }}>{count}</div>
-                    <div className="text-[10px] text-zinc-600 mt-0.5">{POST_STATUS_LABELS[s]}</div>
+                  <div key={s} className="flex-1 text-center rounded-xl bg-white/[0.02] py-3">
+                    <div className="text-xl font-bold tabular-nums" style={{ color: count > 0 ? POST_STATUS_COLORS[s] : 'rgba(255,255,255,0.08)' }}>{count}</div>
+                    <div className="text-[10px] text-white/25 mt-1 font-medium">{POST_STATUS_LABELS[s]}</div>
                   </div>
                 )
               })}
             </div>
           </div>
 
-          {/* Categories */}
-          <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-4">
-            <h3 className="text-sm font-semibold text-zinc-300 mb-3">Content Mix</h3>
-            <div className="flex gap-4">
+          {/* Content Mix */}
+          <div className="glass glass-border rounded-2xl p-5">
+            <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Content Mix</h3>
+            <div className="grid grid-cols-3 gap-6">
               {(['building', 'studying', 'workout'] as const).map(cat => {
                 const count = stats.byCategory[cat] || 0
                 const total = stats.totalVideos || 1
                 const pct = Math.round((count / total) * 100)
                 const target = cat === 'building' ? 70 : cat === 'studying' ? 20 : 10
                 return (
-                  <div key={cat} className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium capitalize" style={{ color: CATEGORY_COLORS[cat] }}>{cat}</span>
-                      <span className="text-[10px] text-zinc-600">{pct}% <span className="text-zinc-700">/ {target}%</span></span>
+                  <div key={cat}>
+                    <div className="flex items-baseline justify-between mb-2">
+                      <span className="text-xs font-semibold capitalize" style={{ color: CATEGORY_COLORS[cat] }}>{cat}</span>
+                      <span className="text-[11px] text-white/25 tabular-nums">{pct}% <span className="text-white/15">/ {target}%</span></span>
                     </div>
-                    <div className="w-full bg-zinc-800 rounded-full h-1.5">
-                      <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: CATEGORY_COLORS[cat] }} />
+                    <div className="w-full bg-white/[0.04] rounded-full h-1">
+                      <div className="h-1 rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: CATEGORY_COLORS[cat] }} />
                     </div>
                   </div>
                 )
@@ -134,39 +146,39 @@ export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
 
           {/* Recent */}
           {recent.length > 0 && (
-            <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-4">
-              <h3 className="text-sm font-semibold text-zinc-300 mb-3">Recent Activity</h3>
-              <div className="space-y-1.5">
+            <div className="glass glass-border rounded-2xl p-5">
+              <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Recent Activity</h3>
+              <div className="space-y-1">
                 {recent.map((item: any) => {
                   const isVideo = 'script' in item
                   const status = item.status
                   const color = isVideo ? STATUS_COLORS[status] : POST_STATUS_COLORS[status]
+                  const statusLabel = isVideo ? STATUS_LABELS[status] : POST_STATUS_LABELS[status]
                   return (
-                    <button
+                    <motion.button
                       key={item.id}
+                      whileHover={{ x: 4 }}
                       onClick={() => isVideo ? onOpenVideo(item.id) : onOpenPost(item.id)}
-                      className="flex items-center gap-3 w-full text-left rounded-lg px-3 py-2 hover:bg-zinc-800/50 transition-colors"
+                      className="flex items-center gap-3 w-full text-left rounded-xl px-3 py-2.5 hover:bg-white/[0.03] transition-colors"
                     >
-                      <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: color }} />
+                      <div className="w-1 h-5 rounded-full" style={{ backgroundColor: color }} />
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm text-zinc-300 truncate">{item.title}</div>
+                        <div className="text-[13px] text-white/80 truncate font-medium">{item.title}</div>
                       </div>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: color + '22', color }}>
-                        {isVideo ? STATUS_LABELS[status] : POST_STATUS_LABELS[status]}
-                      </span>
-                      <span className="text-[10px] text-zinc-700 capitalize">{isVideo ? 'video' : 'post'}</span>
-                    </button>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: color + '15', color }}>{statusLabel}</span>
+                      <span className="text-[10px] text-white/20 font-medium w-10 text-right">{isVideo ? 'video' : 'post'}</span>
+                    </motion.button>
                   )
                 })}
               </div>
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Right: Daily Media */}
-        <div>
+        <motion.div {...fade(0.3)}>
           <DailyMedia weekKey={weekKey} />
-        </div>
+        </motion.div>
       </div>
     </div>
   )

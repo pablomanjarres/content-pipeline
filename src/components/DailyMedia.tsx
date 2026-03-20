@@ -79,13 +79,13 @@ export function DailyMedia({ weekKey }: Props) {
   const totalFiles = Object.values(mediaByDay).reduce((sum, files) => sum + files.length, 0)
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 border border-zinc-800 p-6">
+    <div className="glass glass-border rounded-2xl p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-bold tracking-tight">Daily Media</h2>
-          <div className="text-xs text-zinc-500 mt-0.5">Timelapses, b-roll, raw clips</div>
+          <h2 className="text-lg font-bold tracking-tight">Daily <span className="font-serif italic font-normal text-white/70">Media</span></h2>
+          <div className="text-[11px] text-white/30 mt-0.5 font-medium">Timelapses, b-roll, raw clips</div>
         </div>
-        <div className="text-xs text-zinc-500">{totalFiles} files</div>
+        <div className="text-[11px] text-white/20 font-medium">{totalFiles} files</div>
       </div>
 
       <div className="space-y-1">
