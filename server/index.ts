@@ -191,6 +191,40 @@ app.get('/api/stats', (_req, res) => {
   })
 })
 
+// --- Actions (Claude Code queue) ---
+app.get('/api/actions', (_req, res) => {
+  res.json(read('actions'))
+})
+
+app.get('/api/actions/pending', (_req, res) => {
+  const actions = read<any>('actions').filter((a: any) => a.status === 'pending')
+  res.json(actions)
+})
+
+app.post('/api/actions', (req, res) => {
+  const action = {
+    id: uuid(),
+    type: req.body.type,
+    videoId: req.body.videoId || null,
+    videoTitle: req.body.videoTitle || null,
+    params: req.body.params || {},
+    status: 'pending',
+    result: null,
+    createdAt: new Date().toISOString(),
+    completedAt: null,
+  }
+  upsert('actions', action)
+  res.status(201).json(action)
+})
+
+app.patch('/api/actions/:id', (req, res) => {
+  const existing = findById<any>('actions', req.params.id)
+  if (!existing) return res.status(404).json({ error: 'Not found' })
+  const updated = { ...existing, ...req.body, id: req.params.id }
+  upsert('actions', updated)
+  res.json(updated)
+})
+
 // --- Media directory listing ---
 app.get('/api/media', (_req, res) => {
   try {
