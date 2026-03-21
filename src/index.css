@@ -28,6 +28,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: #000;
   color: #fff;
+  overscroll-behavior: none;
+}
+
+html {
+  overscroll-behavior: none;
 }
 
 /* Liquid Glass */
