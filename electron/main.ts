@@ -50,7 +50,19 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL(DEV_URL)
   } else {
-    mainWindow.loadURL(`http://localhost:${SERVER_PORT}`)
+    // Load from Express — it serves both API and static frontend
+    // Retry until server is ready
+    const loadWithRetry = async () => {
+      for (let i = 0; i < 30; i++) {
+        try {
+          await mainWindow!.loadURL(`http://localhost:${SERVER_PORT}`)
+          return
+        } catch {
+          await new Promise(r => setTimeout(r, 500))
+        }
+      }
+    }
+    loadWithRetry()
   }
 
   mainWindow.on('close', (e) => {
