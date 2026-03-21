@@ -80,6 +80,10 @@ body {
 /* Smooth transitions */
 * { transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
 
+/* All buttons should show pointer cursor */
+button, [role="button"], a, select, input[type="checkbox"], input[type="file"] { cursor: pointer; }
+input[type="text"], input[type="search"], textarea, input:not([type]) { cursor: text; }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
