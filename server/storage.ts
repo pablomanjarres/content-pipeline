@@ -3,7 +3,8 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DATA_ROOT = path.join(__dirname, '..', 'data')
+const PROJECT_ROOT = process.env.CONTENT_PIPELINE_ROOT || path.join(__dirname, '..')
+const DATA_ROOT = path.join(PROJECT_ROOT, 'data')
 const CONFIG_PATH = path.join(DATA_ROOT, 'config.json')
 
 function getDataDir(): string {
