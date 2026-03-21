@@ -18,6 +18,7 @@ if (process.platform === 'darwin') {
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let serverProcess: ChildProcess | null = null
+let isQuitting = false
 
 const SERVER_PORT = 3001
 const DEV_URL = 'http://localhost:5173'
@@ -53,8 +54,7 @@ function createWindow() {
   }
 
   mainWindow.on('close', (e) => {
-    // Hide instead of close — app stays in menu bar
-    if (process.platform === 'darwin') {
+    if (!isQuitting && process.platform === 'darwin') {
       e.preventDefault()
       mainWindow?.hide()
     }
@@ -169,7 +169,7 @@ function createTray() {
 
   try {
     trayIcon = nativeImage.createFromPath(iconPath)
-    trayIcon = trayIcon.resize({ width: 18, height: 18 })
+    trayIcon = trayIcon.resize({ width: 22, height: 22 })
   } catch {
     trayIcon = nativeImage.createEmpty()
   }
@@ -185,23 +185,23 @@ function createTray() {
   tray.on('click', () => showWindow())
 }
 
-function startServer() {
-  const serverPath = path.join(__dirname, '..', 'server', 'index.ts')
-
+async function startServer() {
   if (isDev) {
     // In dev, server is already running via npm run dev
     return
   }
 
-  // In production, start the server
-  serverProcess = fork(serverPath, [], {
-    env: { ...process.env, NODE_ENV: 'production' },
-    stdio: 'pipe',
-  })
-
-  serverProcess.on('error', (err) => {
-    console.error('Server error:', err)
-  })
+  // In production, import the compiled server (starts Express on PORT)
+  try {
+    process.env.NODE_ENV = 'production'
+    // Point to the actual project directory on disk for data + static files
+    process.env.CONTENT_PIPELINE_ROOT = '/Users/pablo/Projects/content-pipeline'
+    const serverPath = path.join(__dirname, 'server.mjs')
+    await import(`file://${serverPath}`)
+    console.log('Server started in-process')
+  } catch (err) {
+    console.error('Failed to start server:', err)
+  }
 }
 
 function getWeekKey(): string {
@@ -298,14 +298,27 @@ function createAppMenu() {
 }
 
 // App lifecycle
-app.on('ready', () => {
+app.on('ready', async () => {
   // Set dock icon
   const dockIcon = nativeImage.createFromPath(path.join(__dirname, '..', 'assets', 'icon-512.png'))
   if (process.platform === 'darwin' && dockIcon && !dockIcon.isEmpty()) {
     app.dock.setIcon(dockIcon)
   }
 
-  startServer()
+  await startServer()
+
+  // Wait for server to be ready in production
+  if (!isDev) {
+    for (let i = 0; i < 20; i++) {
+      try {
+        await fetch(`http://localhost:${SERVER_PORT}/api/stats`)
+        break
+      } catch {
+        await new Promise(r => setTimeout(r, 250))
+      }
+    }
+  }
+
   createAppMenu()
   createTray()
   createWindow()
@@ -320,6 +333,7 @@ app.on('activate', () => {
 })
 
 app.on('before-quit', () => {
+  isQuitting = true
   if (serverProcess) {
     serverProcess.kill()
   }

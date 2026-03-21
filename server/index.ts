@@ -10,7 +10,8 @@ import { read, write, findById, upsert, remove } from './storage.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = 3001
-const DATA_ROOT = path.join(__dirname, '..', 'data')
+const PROJECT_ROOT = process.env.CONTENT_PIPELINE_ROOT || path.join(__dirname, '..')
+const DATA_ROOT = path.join(PROJECT_ROOT, 'data')
 const CONFIG_PATH = path.join(DATA_ROOT, 'config.json')
 
 app.use(cors())
@@ -641,14 +642,14 @@ app.get('/api/media', (_req, res) => {
 
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
-  const distPath = path.join(__dirname, '..', 'dist')
+  const distPath = path.join(PROJECT_ROOT, 'dist')
   app.use(express.static(distPath))
   app.get('*', (_req, res) => {
     res.sendFile(path.join(distPath, 'index.html'))
   })
 }
 
-app.listen(PORT, () => {
-  console.log(`Content Pipeline API running on http://localhost:${PORT}`)
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Content Pipeline API running on http://0.0.0.0:${PORT}`)
   console.log(`Media directory: ${getMediaDir()}`)
 })
