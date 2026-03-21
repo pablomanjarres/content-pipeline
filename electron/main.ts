@@ -19,6 +19,7 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let serverProcess: ChildProcess | null = null
 let isQuitting = false
+let localhostServerRunning = false
 
 const SERVER_PORT = 3001
 const DEV_URL = 'http://localhost:5173'
@@ -134,9 +135,9 @@ async function buildTrayMenu() {
       click: () => showWindow('ideas'),
     },
     {
-      label: 'Strategy',
+      label: 'Engine',
       accelerator: 'CmdOrCtrl+4',
-      click: () => showWindow('strategy'),
+      click: () => showWindow('engine'),
     },
     { type: 'separator' },
 
@@ -158,10 +159,20 @@ async function buildTrayMenu() {
     },
     { type: 'separator' },
 
-    // Web
+    // Web — starts server if not running, then opens browser
     {
       label: 'Open in Browser',
-      click: () => shell.openExternal(isDev ? DEV_URL : `http://localhost:${SERVER_PORT}`),
+      click: () => {
+        if (isDev) {
+          shell.openExternal(DEV_URL)
+        } else {
+          ensureServerAndOpen()
+        }
+      },
+    },
+    {
+      label: 'Start Localhost',
+      click: () => ensureServerAndOpen(),
     },
     { type: 'separator' },
 
@@ -198,6 +209,15 @@ function createTray() {
   tray.on('click', () => showWindow())
 }
 
+async function isServerReachable(): Promise<boolean> {
+  try {
+    await fetch(`http://localhost:${SERVER_PORT}/api/stats`)
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function startServer() {
   if (isDev) {
     // In dev, server is already running via npm run dev
@@ -215,6 +235,34 @@ async function startServer() {
   } catch (err) {
     console.error('Failed to start server:', err)
   }
+}
+
+async function ensureServerAndOpen() {
+  const reachable = await isServerReachable()
+
+  if (!reachable && !localhostServerRunning) {
+    // Start the API server as a child process
+    const serverScript = path.join(__dirname, '..', 'server', 'index.ts')
+    serverProcess = fork(serverScript, [], {
+      execArgv: ['--import', 'tsx'],
+      env: { ...process.env, CONTENT_PIPELINE_ROOT: path.join(__dirname, '..') },
+      stdio: 'inherit',
+    })
+    localhostServerRunning = true
+
+    serverProcess.on('exit', () => {
+      localhostServerRunning = false
+      serverProcess = null
+    })
+
+    // Wait for server to come up
+    for (let i = 0; i < 20; i++) {
+      if (await isServerReachable()) break
+      await new Promise(r => setTimeout(r, 300))
+    }
+  }
+
+  shell.openExternal(`http://localhost:${SERVER_PORT}`)
 }
 
 function getWeekKey(): string {
@@ -285,9 +333,9 @@ function createAppMenu() {
           click: () => mainWindow?.webContents.executeJavaScript('window.location.hash = "ideas"'),
         },
         {
-          label: 'Strategy',
+          label: 'Engine',
           accelerator: 'CmdOrCtrl+4',
-          click: () => mainWindow?.webContents.executeJavaScript('window.location.hash = "strategy"'),
+          click: () => mainWindow?.webContents.executeJavaScript('window.location.hash = "engine"'),
         },
         { type: 'separator' },
         { role: 'reload' },

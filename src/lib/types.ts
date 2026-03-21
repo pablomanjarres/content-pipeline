@@ -129,3 +129,75 @@ export const CATEGORY_COLORS: Record<Category, string> = {
   studying: '#6366f1',
   workout: '#ef4444',
 }
+
+// --- Content Engine ---
+
+export type TonePreset = 'builder' | 'technical' | 'storytelling'
+
+export const TONE_LABELS: Record<TonePreset, string> = {
+  builder: 'Builder',
+  technical: 'Technical',
+  storytelling: 'Storytelling',
+}
+
+export const TONE_DESCRIPTIONS: Record<TonePreset, string> = {
+  builder: 'First-person, casual, build-in-public',
+  technical: 'Specific, code-focused, metrics',
+  storytelling: 'Narrative arc, tension, resolution',
+}
+
+export interface Repo {
+  id: string
+  name: string
+  path: string
+  createdAt: string
+}
+
+export interface CommitEntry {
+  hash: string
+  date: string
+  subject: string
+  body: string
+}
+
+export interface GeneratedContent {
+  platform: 'linkedin' | 'x' | 'script'
+  hook: string
+  body: string
+  cta: string
+  hashtags: string[]
+}
+
+export type GenerationStatus = 'pending' | 'processing' | 'ready' | 'applied' | 'discarded'
+
+export interface Generation {
+  id: string
+  repoId: string
+  repoName: string
+  tone: TonePreset
+  dateFrom: string
+  dateTo: string
+  commits: CommitEntry[]
+  content: GeneratedContent[]
+  status: GenerationStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ReplyOption {
+  mode: string
+  text: string
+}
+
+export type ReplyStatus = 'pending' | 'processing' | 'ready'
+
+export interface ReplyRequest {
+  id: string
+  originalPost: string
+  platform: PostPlatform | 'x'
+  tone: TonePreset
+  replies: ReplyOption[]
+  status: ReplyStatus
+  createdAt: string
+  updatedAt: string
+}

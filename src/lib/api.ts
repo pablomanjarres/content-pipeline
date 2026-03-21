@@ -1,4 +1,4 @@
-import type { Video, Clip, Idea, Post, Status, PostStatus } from './types'
+import type { Video, Clip, Idea, Post, Status, PostStatus, Repo, Generation, ReplyRequest, TonePreset, CommitEntry } from './types'
 
 const BASE = '/api'
 
@@ -70,3 +70,23 @@ export const getPendingActions = () => json<Action[]>('/actions/pending')
 export const createAction = (data: { type: string; videoId?: string; videoTitle?: string; params?: Record<string, any> }) =>
   json<Action>('/actions', { method: 'POST', body: JSON.stringify(data) })
 export const deleteAction = (id: string) => json<{ success: boolean }>(`/actions/${id}`, { method: 'DELETE' })
+
+// Repos
+export const getRepos = () => json<Repo[]>('/repos')
+export const addRepo = (data: { name: string; path: string }) => json<Repo>('/repos', { method: 'POST', body: JSON.stringify(data) })
+export const getRepoActivity = (repoId: string, from: string, to: string) =>
+  json<CommitEntry[]>(`/repos/${repoId}/activity?from=${from}&to=${to}`)
+
+// Generations
+export const getGenerations = () => json<Generation[]>('/generations')
+export const createGeneration = (data: { repoId: string; tone: TonePreset; dateFrom: string; dateTo: string }) =>
+  json<Generation>('/generations', { method: 'POST', body: JSON.stringify(data) })
+export const updateGeneration = (id: string, data: Partial<Generation>) =>
+  json<Generation>(`/generations/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+export const applyGeneration = (id: string, index: number) =>
+  json<{ postId?: string; videoId?: string }>(`/generations/${id}/apply/${index}`, { method: 'POST' })
+
+// Replies
+export const getReplyHistory = () => json<ReplyRequest[]>('/replies')
+export const createReplyRequest = (data: { originalPost: string; platform: string; tone: TonePreset }) =>
+  json<ReplyRequest>('/replies', { method: 'POST', body: JSON.stringify(data) })

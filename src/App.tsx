@@ -7,21 +7,22 @@ import { Posts } from './pages/Posts'
 import { VideoDetail } from './pages/VideoDetail'
 import { PostDetail } from './pages/PostDetail'
 import { Strategy } from './pages/Strategy'
+import { ContentEngine } from './pages/ContentEngine'
 
-type Page = 'dashboard' | 'pipeline' | 'ideas' | 'posts' | 'strategy' | 'video-detail' | 'post-detail'
+type Page = 'dashboard' | 'pipeline' | 'ideas' | 'posts' | 'strategy' | 'engine' | 'video-detail' | 'post-detail'
 
 const NAV_ITEMS: { key: Page; label: string }[] = [
   { key: 'dashboard', label: 'Overview' },
   { key: 'pipeline', label: 'Pipeline' },
   { key: 'ideas', label: 'Ideas' },
-  { key: 'strategy', label: 'Strategy' },
+  { key: 'engine', label: 'Engine' },
 ]
 
 function parseHash(): { page: Page; itemId: string | null } {
   const hash = window.location.hash.slice(1) || 'dashboard'
   if (hash.startsWith('video/')) return { page: 'video-detail', itemId: hash.slice(6) }
   if (hash.startsWith('post/')) return { page: 'post-detail', itemId: hash.slice(5) }
-  if (['dashboard', 'pipeline', 'ideas', 'posts', 'strategy'].includes(hash)) return { page: hash as Page, itemId: null }
+  if (['dashboard', 'pipeline', 'ideas', 'posts', 'strategy', 'engine'].includes(hash)) return { page: hash as Page, itemId: null }
   return { page: 'dashboard', itemId: null }
 }
 
@@ -112,6 +113,7 @@ export default function App() {
             {page === 'posts' && <Posts onOpenPost={openPost} />}
             {page === 'ideas' && <Ideas onOpenVideo={openVideo} />}
             {page === 'strategy' && <Strategy />}
+            {page === 'engine' && <ContentEngine />}
             {page === 'video-detail' && selectedItemId && (
               <VideoDetail id={selectedItemId} onBack={() => setPage('dashboard')} />
             )}

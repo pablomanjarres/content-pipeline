@@ -5,6 +5,7 @@ import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { v4 as uuid } from 'uuid'
 import multer from 'multer'
+import { execSync } from 'child_process'
 import { read, write, findById, upsert, remove } from './storage.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -628,6 +629,249 @@ app.patch('/api/actions/:id', (req, res) => {
   const updated = { ...existing, ...req.body, id: req.params.id }
   upsert('actions', updated)
   res.json(updated)
+})
+
+// --- Repos ---
+const reposPath = () => path.join(getProjectDataDir(), 'repos.json')
+function readRepos() {
+  const p = reposPath()
+  if (!fs.existsSync(p)) fs.writeFileSync(p, '[]')
+  return JSON.parse(fs.readFileSync(p, 'utf-8'))
+}
+function writeRepos(data: any) { fs.writeFileSync(reposPath(), JSON.stringify(data, null, 2)) }
+
+app.get('/api/repos', (_req, res) => {
+  res.json(readRepos())
+})
+
+app.post('/api/repos', (req, res) => {
+  const repos = readRepos()
+  const repo = {
+    id: uuid(),
+    name: req.body.name || path.basename(req.body.path),
+    path: req.body.path,
+    createdAt: new Date().toISOString(),
+  }
+  repos.push(repo)
+  writeRepos(repos)
+  res.status(201).json(repo)
+})
+
+app.get('/api/repos/:id/activity', (req, res) => {
+  const repos = readRepos()
+  const repo = repos.find((r: any) => r.id === req.params.id)
+  if (!repo) return res.status(404).json({ error: 'Repo not found' })
+
+  const from = req.query.from as string
+  const to = req.query.to as string
+  if (!from || !to) return res.status(400).json({ error: 'from and to required' })
+
+  try {
+    const gitLog = execSync(
+      `git log --after="${from}" --before="${to}T23:59:59" --format="%H|||%ai|||%s|||%b|||END" --no-merges`,
+      { cwd: repo.path, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
+    )
+
+    const commits = gitLog.split('|||END\n').filter(Boolean).map((entry: string) => {
+      const [hash, date, subject, ...bodyParts] = entry.split('|||')
+      return { hash: hash.trim(), date: date.trim(), subject: subject.trim(), body: bodyParts.join('|||').trim() }
+    })
+
+    res.json(commits)
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to read git log', details: err.message })
+  }
+})
+
+// --- Generations ---
+const generationsPath = () => path.join(getProjectDataDir(), 'generations.json')
+function readGenerations() {
+  const p = generationsPath()
+  if (!fs.existsSync(p)) fs.writeFileSync(p, '[]')
+  return JSON.parse(fs.readFileSync(p, 'utf-8'))
+}
+function writeGenerations(data: any) { fs.writeFileSync(generationsPath(), JSON.stringify(data, null, 2)) }
+
+app.get('/api/generations', (_req, res) => {
+  res.json(readGenerations())
+})
+
+app.post('/api/generations', (req, res) => {
+  const repos = readRepos()
+  const repo = repos.find((r: any) => r.id === req.body.repoId)
+  if (!repo) return res.status(404).json({ error: 'Repo not found' })
+
+  const from = req.body.dateFrom
+  const to = req.body.dateTo
+
+  // Fetch commits
+  let commits: any[] = []
+  try {
+    const gitLog = execSync(
+      `git log --after="${from}" --before="${to}T23:59:59" --format="%H|||%ai|||%s|||%b|||END" --no-merges`,
+      { cwd: repo.path, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
+    )
+    commits = gitLog.split('|||END\n').filter(Boolean).map((entry: string) => {
+      const [hash, date, subject, ...bodyParts] = entry.split('|||')
+      return { hash: hash.trim(), date: date.trim(), subject: subject.trim(), body: bodyParts.join('|||').trim() }
+    })
+  } catch { /* empty repo or no commits in range */ }
+
+  const now = new Date().toISOString()
+  const generation = {
+    id: uuid(),
+    repoId: req.body.repoId,
+    repoName: repo.name,
+    tone: req.body.tone || 'builder',
+    dateFrom: from,
+    dateTo: to,
+    commits,
+    content: [],
+    status: 'pending',
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  const generations = readGenerations()
+  generations.unshift(generation)
+  writeGenerations(generations)
+
+  // Queue action for Claude Code processing
+  const action = {
+    id: uuid(),
+    type: 'generate-from-repo',
+    videoId: null,
+    videoTitle: null,
+    params: { generationId: generation.id, tone: generation.tone, commits, repoName: repo.name, dateFrom: from, dateTo: to },
+    status: 'pending',
+    result: null,
+    createdAt: now,
+    completedAt: null,
+  }
+  upsert('actions', action)
+
+  res.status(201).json(generation)
+})
+
+app.put('/api/generations/:id', (req, res) => {
+  const generations = readGenerations()
+  const idx = generations.findIndex((g: any) => g.id === req.params.id)
+  if (idx === -1) return res.status(404).json({ error: 'Not found' })
+  generations[idx] = { ...generations[idx], ...req.body, id: req.params.id, updatedAt: new Date().toISOString() }
+  writeGenerations(generations)
+  res.json(generations[idx])
+})
+
+app.post('/api/generations/:id/apply/:index', (req, res) => {
+  const generations = readGenerations()
+  const gen = generations.find((g: any) => g.id === req.params.id)
+  if (!gen) return res.status(404).json({ error: 'Generation not found' })
+
+  const contentIdx = parseInt(req.params.index)
+  const content = gen.content[contentIdx]
+  if (!content) return res.status(404).json({ error: 'Content not found at index' })
+
+  const now = new Date().toISOString()
+
+  if (content.platform === 'script') {
+    // Create a video entry
+    const video = {
+      id: uuid(),
+      title: content.hook || `${gen.repoName} update`,
+      status: 'scripted' as const,
+      category: 'building' as const,
+      hook: content.hook || '',
+      script: content.body || '',
+      cta: content.cta || '',
+      platforms: Object.fromEntries(
+        ['instagram', 'tiktok', 'youtube', 'linkedin', 'x', 'reddit'].map(p => [p, { caption: '', hashtags: content.hashtags || [], posted: false, url: null, postedAt: null }])
+      ),
+      clipPaths: [],
+      tags: ['engine-generated'],
+      notes: `Generated from ${gen.repoName} commits (${gen.dateFrom} to ${gen.dateTo})`,
+      createdAt: now,
+      updatedAt: now,
+    }
+    upsert('videos', video)
+    res.json({ videoId: video.id })
+  } else {
+    // Create a post entry (linkedin or x)
+    const post = {
+      id: uuid(),
+      title: content.hook || `${gen.repoName} update`,
+      platform: content.platform === 'x' ? 'x' : 'linkedin',
+      status: 'written' as const,
+      category: 'building' as const,
+      content: `${content.hook}\n\n${content.body}\n\n${content.cta}`.trim(),
+      hook: content.hook || '',
+      cta: content.cta || '',
+      linkedVideoId: null,
+      url: null,
+      tags: ['engine-generated', ...(content.hashtags || [])],
+      notes: `Generated from ${gen.repoName} commits (${gen.dateFrom} to ${gen.dateTo})`,
+      createdAt: now,
+      updatedAt: now,
+      postedAt: null,
+    }
+    upsert('posts', post)
+    res.json({ postId: post.id })
+  }
+})
+
+// --- Replies ---
+const repliesPath = () => path.join(getProjectDataDir(), 'replies.json')
+function readReplies() {
+  const p = repliesPath()
+  if (!fs.existsSync(p)) fs.writeFileSync(p, '[]')
+  return JSON.parse(fs.readFileSync(p, 'utf-8'))
+}
+function writeReplies(data: any) { fs.writeFileSync(repliesPath(), JSON.stringify(data, null, 2)) }
+
+app.get('/api/replies', (_req, res) => {
+  res.json(readReplies())
+})
+
+app.post('/api/replies', (req, res) => {
+  const now = new Date().toISOString()
+  const reply = {
+    id: uuid(),
+    originalPost: req.body.originalPost,
+    platform: req.body.platform || 'x',
+    tone: req.body.tone || 'builder',
+    replies: [],
+    status: 'pending',
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  const replies = readReplies()
+  replies.unshift(reply)
+  writeReplies(replies)
+
+  // Queue action
+  const action = {
+    id: uuid(),
+    type: 'generate-replies',
+    videoId: null,
+    videoTitle: null,
+    params: { replyId: reply.id, originalPost: reply.originalPost, platform: reply.platform, tone: reply.tone },
+    status: 'pending',
+    result: null,
+    createdAt: now,
+    completedAt: null,
+  }
+  upsert('actions', action)
+
+  res.status(201).json(reply)
+})
+
+app.put('/api/replies/:id', (req, res) => {
+  const replies = readReplies()
+  const idx = replies.findIndex((r: any) => r.id === req.params.id)
+  if (idx === -1) return res.status(404).json({ error: 'Not found' })
+  replies[idx] = { ...replies[idx], ...req.body, id: req.params.id, updatedAt: new Date().toISOString() }
+  writeReplies(replies)
+  res.json(replies[idx])
 })
 
 // --- Media directory listing ---
