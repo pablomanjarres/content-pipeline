@@ -166,8 +166,8 @@ export function VideoDetail({ id, onBack }: Props) {
               onChange={e => setScript(e.target.value)}
               onBlur={saveScript}
               placeholder="# Hook&#10;&#10;# Script&#10;&#10;# CTA"
-              rows={8}
-              className="w-full bg-transparent text-white/80 outline-none text-sm resize-y font-mono leading-relaxed"
+              rows={16}
+              className="w-full bg-transparent text-white/80 outline-none text-sm resize-y font-mono leading-relaxed min-h-[300px]"
             />
           </div>
 

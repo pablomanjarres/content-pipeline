@@ -62,7 +62,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Nav — draggable for Electron title bar */}
-      <nav className="sticky top-0 z-50 glass-strong" style={{ WebkitAppRegion: 'drag' } as any}>
+      <nav className="sticky top-0 z-50 bg-black border-b border-white/[0.06]" style={{ WebkitAppRegion: 'drag' } as any}>
         <div className="max-w-[1400px] mx-auto px-6 pl-20 h-14 flex items-center justify-between">
           <div className="flex items-center gap-10" style={{ WebkitAppRegion: 'no-drag' } as any}>
             <span className="font-semibold text-lg tracking-tight">
