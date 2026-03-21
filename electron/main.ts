@@ -182,6 +182,7 @@ function createTray() {
   try {
     trayIcon = nativeImage.createFromPath(iconPath)
     trayIcon = trayIcon.resize({ width: 22, height: 22 })
+    trayIcon.setTemplateImage(true)
   } catch {
     trayIcon = nativeImage.createEmpty()
   }
