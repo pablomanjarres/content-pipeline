@@ -1,36 +1,23 @@
 import { build } from 'esbuild'
 import { execSync } from 'child_process'
+import { builtinModules } from 'module'
 
 // 1. Build Vite frontend
 console.log('Building frontend...')
 execSync('npx vite build', { stdio: 'inherit' })
 
-// 2. Compile Electron main + server to CJS
+// 2. Compile Electron main + server
 console.log('Compiling Electron + server...')
 
-const commonOpts = {
-  bundle: true,
-  platform: 'node',
-  target: 'node20',
-  format: 'cjs',
-  banner: {
-    // Provide __dirname and __filename for CJS, handle import.meta.url
-    js: `const __bundled_dirname = __dirname; const __bundled_filename = __filename;`,
-  },
-  // Replace import.meta references
-  define: {
-    'import.meta.url': 'require("url").pathToFileURL(__filename).toString()',
-  },
-}
+// Node built-in modules must be external (express uses require('node:events') etc.)
+const nodeExternals = [
+  ...builtinModules,
+  ...builtinModules.map(m => `node:${m}`),
+  'electron',
+]
 
-// Can't use complex expressions in define — use a plugin instead
-const importMetaPlugin = {
-  name: 'import-meta',
-  setup(build) {
-    build.onResolve({ filter: /.*/ }, () => null)
-    // Replace import.meta.url in the source
-  },
-}
+// Only provide require — the source code already handles __dirname via import.meta.url
+const banner = 'import { createRequire as _cr } from "module"; const require = _cr(import.meta.url);'
 
 await build({
   bundle: true,
@@ -39,8 +26,8 @@ await build({
   format: 'esm',
   entryPoints: ['electron/main.ts'],
   outfile: 'dist-electron/main.mjs',
-  external: ['electron'],
-  banner: { js: 'import { createRequire } from "module"; const require = createRequire(import.meta.url);' },
+  external: nodeExternals,
+  banner: { js: banner },
 })
 
 await build({
@@ -50,7 +37,8 @@ await build({
   format: 'esm',
   entryPoints: ['server/index.ts'],
   outfile: 'dist-electron/server.mjs',
-  external: ['electron'],
+  external: nodeExternals,
+  banner: { js: banner },
 })
 
 console.log('Build complete.')
