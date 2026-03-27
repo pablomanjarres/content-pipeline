@@ -58,13 +58,27 @@ export function WeeklyTracker({ onOpenVideo, onOpenPost }: Props) {
   const [weekData, setWeekData] = useState<WeekData>({})
   const [videos, setVideos] = useState<Video[]>([])
   const [posts, setPosts] = useState<Post[]>([])
+  const [frozenTasks, setFrozenTasks] = useState<string[]>([])
   const { weekKey, days, rangeLabel } = getWeekInfo()
 
   const load = useCallback(() => {
     fetch(`/api/weekly/${weekKey}`).then(r => r.json()).then(setWeekData)
     getVideos().then(setVideos)
     getPosts().then(setPosts)
+    fetch('/api/frozen').then(r => r.json()).then(setFrozenTasks)
   }, [weekKey])
+
+  const toggleFreeze = async (taskKey: string) => {
+    const next = frozenTasks.includes(taskKey)
+      ? frozenTasks.filter(k => k !== taskKey)
+      : [...frozenTasks, taskKey]
+    setFrozenTasks(next)
+    await fetch('/api/frozen', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(next),
+    })
+  }
 
   useEffect(() => { load() }, [load])
 
@@ -131,15 +145,16 @@ export function WeeklyTracker({ onOpenVideo, onOpenPost }: Props) {
     return { linked: true, status: 'unknown', id: val }
   }
 
-  // Count stats
-  const dailyTasks = TASKS.filter(t => t.freq === 'daily')
-  const weeklyTasks = TASKS.filter(t => t.freq === 'weekly')
+  // Count stats (exclude frozen tasks)
+  const activeTasks = TASKS.filter(t => !frozenTasks.includes(t.key))
+  const dailyTasks = activeTasks.filter(t => t.freq === 'daily')
+  const weeklyTasks = activeTasks.filter(t => t.freq === 'weekly')
   const totalSlots = days.length * dailyTasks.length + weeklyTasks.length
 
   let completed = 0
   let inProgress = 0
   for (const day of days) {
-    for (const task of TASKS) {
+    for (const task of activeTasks) {
       if (task.freq === 'weekly' && day !== days[0]) continue
       const cell = getCellStatus(day.date, task.key)
       if (cell.status === 'posted') completed++
@@ -158,18 +173,19 @@ export function WeeklyTracker({ onOpenVideo, onOpenPost }: Props) {
   const pct = totalSlots > 0 ? Math.round((completed / totalSlots) * 100) : 0
 
   return (
-    <div className="glass glass-border rounded-2xl p-6">
+    <div className="glass glass-border rounded-2xl p-3 sm:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
           <h2 className="text-xl font-bold tracking-tight">This <span className="font-serif italic font-normal text-white/70">Week</span></h2>
           <div className="text-[13px] text-white/30 mt-0.5 font-medium">{rangeLabel}</div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 text-[11px] text-white/30 font-medium">
+          <div className="hidden sm:flex items-center gap-3 text-[11px] text-white/30 font-medium">
             <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/10" /> Open</span>
             <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Working</span>
             <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Posted</span>
+            {frozenTasks.length > 0 && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-zinc-600" /> Frozen</span>}
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold tabular-nums" style={{ color: pct === 100 ? '#22c55e' : pct > 50 ? '#f59e0b' : '#ef4444' }}>
@@ -194,7 +210,7 @@ export function WeeklyTracker({ onOpenVideo, onOpenPost }: Props) {
 
       {/* Grid */}
       <div className="overflow-x-auto -mx-2">
-        <table className="w-full border-separate" style={{ borderSpacing: '4px' }}>
+        <table className="w-full min-w-[640px] border-separate" style={{ borderSpacing: '4px' }}>
           <thead>
             <tr>
               <th className="w-[100px]" />
@@ -211,18 +227,35 @@ export function WeeklyTracker({ onOpenVideo, onOpenPost }: Props) {
             </tr>
           </thead>
           <tbody>
-            {TASKS.map((task, ti) => (
-              <tr key={task.key} className={task.freq === 'weekly' ? 'border-t border-zinc-800' : ''}>
+            {TASKS.map((task, ti) => {
+              const isFrozen = frozenTasks.includes(task.key)
+              return (
+              <tr key={task.key} className={`${task.freq === 'weekly' ? 'border-t border-zinc-800' : ''} ${isFrozen ? 'opacity-30' : ''}`}>
                 <td className="pr-2 py-0.5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-1 h-6 rounded-full" style={{ backgroundColor: task.color }} />
-                    <div>
-                      <div className="text-xs font-medium text-zinc-300">{task.label}</div>
+                  <div className="flex items-center gap-2 group/row">
+                    <div className="w-1 h-6 rounded-full" style={{ backgroundColor: isFrozen ? '#3f3f46' : task.color }} />
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-xs font-medium ${isFrozen ? 'text-zinc-600 line-through' : 'text-zinc-300'}`}>{task.label}</div>
                       {task.freq === 'weekly' && <div className="text-[9px] text-zinc-600">weekly</div>}
                     </div>
+                    <button
+                      onClick={() => toggleFreeze(task.key)}
+                      className="opacity-0 group-hover/row:opacity-100 transition-opacity text-[10px] text-zinc-500 hover:text-white shrink-0"
+                      title={isFrozen ? 'Unfreeze pipeline' : 'Freeze pipeline'}
+                    >
+                      {isFrozen ? '▶' : '❄'}
+                    </button>
                   </div>
                 </td>
                 {days.map(d => {
+                  if (isFrozen) {
+                    return (
+                      <td key={d.date} className="text-center p-0">
+                        <div className="w-full h-10 rounded-lg border border-zinc-800/30 bg-zinc-900/30" />
+                      </td>
+                    )
+                  }
+
                   const cell = getCellStatus(d.date, task.key)
                   const isPosted = cell.status === 'posted'
                   const isWorking = cell.linked && !isPosted
@@ -264,7 +297,8 @@ export function WeeklyTracker({ onOpenVideo, onOpenPost }: Props) {
                   )
                 })}
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

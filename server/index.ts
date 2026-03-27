@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 import fs from 'fs'
+import os from 'os'
 import { fileURLToPath } from 'url'
 import { v4 as uuid } from 'uuid'
 import multer from 'multer'
@@ -10,10 +11,24 @@ import { read, write, findById, upsert, remove } from './storage.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
-const PORT = 3001
+const PORT = parseInt(process.env.PORT || '3001', 10)
 const PROJECT_ROOT = process.env.CONTENT_PIPELINE_ROOT || path.join(__dirname, '..')
 const DATA_ROOT = path.join(PROJECT_ROOT, 'data')
 const CONFIG_PATH = path.join(DATA_ROOT, 'config.json')
+
+// Only allow localhost and Tailscale CGNAT (100.64.0.0/10)
+app.use((req, res, next) => {
+  const raw = req.socket.remoteAddress ?? ''
+  const ip = raw.replace(/^::ffff:/, '')
+  if (ip === '127.0.0.1' || ip === '::1') { next(); return }
+  const parts = ip.split('.')
+  if (parts.length === 4) {
+    const first = parseInt(parts[0], 10)
+    const second = parseInt(parts[1], 10)
+    if (first === 100 && second >= 64 && second <= 127) { next(); return }
+  }
+  res.status(403).json({ error: 'Access restricted to Tailscale network' })
+})
 
 app.use(cors())
 app.use(express.json())
@@ -333,6 +348,21 @@ app.get('/api/stats', (_req, res) => {
   })
 })
 
+// --- Frozen Pipelines ---
+app.get('/api/frozen', (_req, res) => {
+  const config = readConfig()
+  const project = config.projects.find((p: any) => p.id === config.activeProject) || config.projects[0]
+  res.json(project.frozenTasks || [])
+})
+
+app.put('/api/frozen', (req, res) => {
+  const config = readConfig()
+  const project = config.projects.find((p: any) => p.id === config.activeProject) || config.projects[0]
+  project.frozenTasks = req.body
+  writeConfig(config)
+  res.json(project.frozenTasks)
+})
+
 // --- Weekly Tracker ---
 const weeklyPath = () => path.join(getProjectDataDir(), 'weekly.json')
 const readWeekly = () => {
@@ -368,7 +398,7 @@ function dayFolder(weekKey: string, date: string): string {
 }
 
 // Upload files for a specific day
-const upload = multer({ dest: '/tmp/content-pipeline-uploads' })
+const upload = multer({ dest: path.join(os.tmpdir(), 'content-pipeline-uploads') })
 app.post('/api/media/upload/:weekKey/:date', upload.array('files', 20), (req, res) => {
   const dest = dayFolder(req.params.weekKey, req.params.date)
   const files = (req.files as Express.Multer.File[]) || []
@@ -406,6 +436,17 @@ app.get('/api/media/week/:weekKey', (req, res) => {
     }
   }
   res.json(result)
+})
+
+// Delete a media file
+app.delete('/api/media/file', (req, res) => {
+  const { filePath } = req.body
+  if (!filePath) return res.status(400).json({ error: 'filePath required' })
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' })
+  const mediaDir = getMediaDir()
+  if (!filePath.startsWith(mediaDir)) return res.status(403).json({ error: 'Path outside media directory' })
+  fs.unlinkSync(filePath)
+  res.json({ deleted: filePath })
 })
 
 // Rename a file
@@ -881,6 +922,79 @@ app.get('/api/media', (_req, res) => {
     res.json(files)
   } catch {
     res.json([])
+  }
+})
+
+// List ALL media files across all weeks (for the Videos dashboard)
+app.get('/api/media/all', (_req, res) => {
+  const mediaDir = getMediaDir()
+  if (!fs.existsSync(mediaDir)) return res.json([])
+
+  const allFiles: { filename: string; path: string; size: number; date: string; weekKey: string; modified: string; type: string }[] = []
+  const videoExts = new Set(['.mov', '.mp4', '.m4v', '.mkv', '.avi', '.webm', '.hevc'])
+  const imageExts = new Set(['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif', '.bmp', '.tiff'])
+
+  for (const weekDir of fs.readdirSync(mediaDir).filter(f => !f.startsWith('.'))) {
+    const weekPath = path.join(mediaDir, weekDir)
+    if (!fs.statSync(weekPath).isDirectory()) continue
+
+    for (const sub of fs.readdirSync(weekPath).filter(f => f.startsWith('uploads-'))) {
+      const subPath = path.join(weekPath, sub)
+      if (!fs.statSync(subPath).isDirectory()) continue
+      const date = sub.replace('uploads-', '')
+
+      for (const f of fs.readdirSync(subPath).filter(f => !f.startsWith('.'))) {
+        const fPath = path.join(subPath, f)
+        const stat = fs.statSync(fPath)
+        if (!stat.isFile()) continue
+        const ext = path.extname(f).toLowerCase()
+        const type = videoExts.has(ext) ? 'video' : imageExts.has(ext) ? 'image' : 'file'
+        allFiles.push({ filename: f, path: fPath, size: stat.size, date, weekKey: weekDir, modified: stat.mtime.toISOString(), type })
+      }
+    }
+  }
+
+  allFiles.sort((a, b) => b.modified.localeCompare(a.modified))
+  res.json(allFiles)
+})
+
+// Serve a media file for preview (video streaming with range support)
+app.get('/api/media/serve', (req, res) => {
+  const filePath = req.query.path as string
+  if (!filePath) return res.status(400).json({ error: 'path required' })
+  const mediaDir = getMediaDir()
+  if (!filePath.startsWith(mediaDir)) return res.status(403).json({ error: 'Path outside media directory' })
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' })
+
+  const stat = fs.statSync(filePath)
+  const ext = path.extname(filePath).toLowerCase()
+  const mimeTypes: Record<string, string> = {
+    '.mov': 'video/quicktime', '.mp4': 'video/mp4', '.m4v': 'video/mp4',
+    '.mkv': 'video/x-matroska', '.avi': 'video/x-msvideo', '.webm': 'video/webm',
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+    '.heic': 'image/heic', '.heif': 'image/heif', '.webp': 'image/webp',
+    '.gif': 'image/gif', '.bmp': 'image/bmp', '.tiff': 'image/tiff',
+  }
+  const contentType = mimeTypes[ext] || 'application/octet-stream'
+
+  const range = req.headers.range
+  if (range) {
+    const parts = range.replace(/bytes=/, '').split('-')
+    const start = parseInt(parts[0], 10)
+    const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1
+    res.writeHead(206, {
+      'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': end - start + 1,
+      'Content-Type': contentType,
+    })
+    fs.createReadStream(filePath, { start, end }).pipe(res)
+  } else {
+    res.writeHead(200, {
+      'Content-Length': stat.size,
+      'Content-Type': contentType,
+    })
+    fs.createReadStream(filePath).pipe(res)
   }
 })
 
