@@ -46,7 +46,7 @@ coverage/
 .private/
 private/
 .archgraph/
-.the-project/
+.nella/
 .mcp.json
 
 # Claude Code
