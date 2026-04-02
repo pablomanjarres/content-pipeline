@@ -467,7 +467,7 @@ app.post('/api/media/rename', (req, res) => {
 
 // --- Project Folders ---
 // Each content piece (reel, post) gets its own project folder
-// the-project-videos/{weekKey}/content/{slug}/
+// videos/{weekKey}/content/{slug}/
 //   project.json, script.md, sources/, exports/
 
 function projectDir(weekKey: string, slug: string): string {

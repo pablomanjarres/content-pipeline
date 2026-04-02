@@ -79,7 +79,7 @@ export function Strategy() {
         <h2 className="text-[11px] text-white/30 uppercase tracking-wider font-medium mb-3">Content Mix</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
-            { label: 'building', pct: 70, color: '#f97316', examples: ['the product demos', 'bugs', 'progress', 'features', 'launches'] },
+            { label: 'building', pct: 70, color: '#f97316', examples: ['product demos', 'bugs', 'progress', 'features', 'launches'] },
             { label: 'studying', pct: 20, color: '#6366f1', examples: ['deep work', 'learning', 'university', 'insights'] },
             { label: 'workout', pct: 10, color: '#ef4444', examples: ['discipline', 'routine', 'balance', 'lifestyle'] },
           ].map(cat => (
@@ -146,9 +146,9 @@ export function Strategy() {
                 <div className="text-sm font-semibold text-violet-400 mb-1.5">Demo Clips</div>
                 <div className="space-y-1">
                   {[
-                    'Bug catch demo — show the product catching a real agent failure',
+                    'Bug catch demo — show the tool catching a real agent failure',
                     'Speed demo — 5-min setup, instant value',
-                    'Before/after — code with vs. without the product',
+                    'Before/after — code with vs. without the tool',
                   ].map(item => (
                     <div key={item} className="text-xs text-white/30 flex items-center gap-1.5">
                       <span className="w-1 h-1 rounded-full bg-violet-500/40 shrink-0" />
@@ -328,7 +328,7 @@ const DAILY_SCHEDULE = [
 
 const PIPELINE_STEPS = [
   { icon: '📹', label: 'Capture', desc: 'Record 20–60s bursts during natural work. Tripod at 45°, same angle daily.', time: 'during work', color: '#f59e0b' },
-  { icon: '📂', label: 'Upload', desc: 'Upload to dashboard → goes to the-project-videos/{week}/uploads-{date}/', time: 'instant', color: '#8b5cf6' },
+  { icon: '📂', label: 'Upload', desc: 'Upload to dashboard → goes to videos/{week}/uploads-{date}/', time: 'instant', color: '#8b5cf6' },
   { icon: '✂️', label: 'Extract', desc: 'Pick 2–5 clips per day. Categorize by building/studying/workout.', time: '10–20 min', color: '#3b82f6' },
   { icon: '🎬', label: 'Produce', desc: 'Open project from weekly tracker. Select sources, write script, edit in Premiere.', time: '15–25 min', color: '#ec4899' },
   { icon: '📤', label: 'Export', desc: 'Upload versioned exports (v1, v2, v3) to project folder.', time: '5 min', color: '#06b6d4' },
@@ -344,7 +344,7 @@ const VIDEO_SECTIONS = [
 ]
 
 const CONTENT_TYPES = [
-  { label: 'Build', color: '#f97316', items: ['the product demos', 'Bugs fixed', 'Progress updates', 'Feature launches'] },
+  { label: 'Build', color: '#f97316', items: ['Product demos', 'Bugs fixed', 'Progress updates', 'Feature launches'] },
   { label: 'Struggle', color: '#ef4444', items: ['Problems', 'Pressure', 'Failures', 'Honest moments'] },
   { label: 'Balance', color: '#6366f1', items: ['Startup + university', 'Time constraints', 'Tradeoffs'] },
   { label: 'Identity', color: '#22c55e', items: ['Daily operations', 'Routines', 'Discipline', 'Workflow'] },

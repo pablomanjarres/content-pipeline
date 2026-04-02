@@ -143,7 +143,7 @@ export function ContentEngine() {
                 value={newRepoPath}
                 onChange={e => setNewRepoPath(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAddRepo()}
-                placeholder="./project"
+                placeholder="/path/to/your/project"
                 className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm outline-none focus:border-zinc-500"
                 autoFocus
               />
