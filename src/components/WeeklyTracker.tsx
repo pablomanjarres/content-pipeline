@@ -232,19 +232,18 @@ export function WeeklyTracker({ onOpenVideo, onOpenPost }: Props) {
               return (
               <tr key={task.key} className={`${task.freq === 'weekly' ? 'border-t border-zinc-800' : ''} ${isFrozen ? 'opacity-30' : ''}`}>
                 <td className="pr-2 py-0.5">
-                  <div className="flex items-center gap-2 group/row">
-                    <div className="w-1 h-6 rounded-full" style={{ backgroundColor: isFrozen ? '#3f3f46' : task.color }} />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => toggleFreeze(task.key)}
+                      className={`w-1 h-6 rounded-full shrink-0 transition-all cursor-pointer ${isFrozen ? 'bg-zinc-700 ring-1 ring-zinc-600' : ''}`}
+                      style={{ backgroundColor: isFrozen ? undefined : task.color }}
+                      title={isFrozen ? 'Unfreeze pipeline' : 'Freeze pipeline — excludes from weekly %'}
+                    />
                     <div className="flex-1 min-w-0">
                       <div className={`text-xs font-medium ${isFrozen ? 'text-zinc-600 line-through' : 'text-zinc-300'}`}>{task.label}</div>
                       {task.freq === 'weekly' && <div className="text-[9px] text-zinc-600">weekly</div>}
+                      {isFrozen && task.freq !== 'weekly' && <div className="text-[9px] text-zinc-600">frozen</div>}
                     </div>
-                    <button
-                      onClick={() => toggleFreeze(task.key)}
-                      className="opacity-0 group-hover/row:opacity-100 transition-opacity text-[10px] text-zinc-500 hover:text-white shrink-0"
-                      title={isFrozen ? 'Unfreeze pipeline' : 'Freeze pipeline'}
-                    >
-                      {isFrozen ? '▶' : '❄'}
-                    </button>
                   </div>
                 </td>
                 {days.map(d => {

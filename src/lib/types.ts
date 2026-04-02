@@ -1,6 +1,6 @@
 export type Status = 'idea' | 'scripted' | 'filming' | 'editing' | 'ready' | 'scheduled' | 'posted'
 
-export type Category = 'building' | 'studying' | 'workout'
+export type Category = 'building' | 'studying' | 'workout' | 'gtm'
 
 export type Platform = 'instagram' | 'tiktok' | 'youtube' | 'linkedin' | 'x' | 'reddit'
 
@@ -128,6 +128,7 @@ export const CATEGORY_COLORS: Record<Category, string> = {
   building: '#f97316',
   studying: '#6366f1',
   workout: '#ef4444',
+  gtm: '#8b5cf6',
 }
 
 // --- Content Engine ---
@@ -200,4 +201,14 @@ export interface ReplyRequest {
   status: ReplyStatus
   createdAt: string
   updatedAt: string
+}
+
+export interface OutreachTemplate {
+  id: string
+  name: string
+  platform: Platform
+  template: string
+  tone: string
+  notes: string
+  createdAt: string
 }

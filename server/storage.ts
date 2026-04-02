@@ -31,7 +31,9 @@ export function read<T>(file: string): T[] {
 
 export function write<T>(file: string, data: T[]): void {
   const filepath = path.join(getDataDir(), `${file}.json`)
-  fs.writeFileSync(filepath, JSON.stringify(data, null, 2))
+  const tmpPath = filepath + '.tmp'
+  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2))
+  fs.renameSync(tmpPath, filepath)
 }
 
 export function findById<T extends { id: string }>(file: string, id: string): T | undefined {

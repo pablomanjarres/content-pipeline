@@ -154,7 +154,7 @@ export function ContentEngine() {
           </div>
         )}
 
-        <div className="grid grid-cols-[1fr_auto] gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4">
           {/* Repo select */}
           <div>
             <label className="text-xs text-zinc-500 block mb-1">Repository</label>
@@ -248,7 +248,7 @@ export function ContentEngine() {
       {activeGen && activeGen.status === 'ready' && activeGen.content.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider">Content Review</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {activeGen.content.map((c, i) => (
               <GenerationCard
                 key={i}
@@ -293,7 +293,7 @@ export function ContentEngine() {
           />
         </div>
 
-        <div className="grid grid-cols-[auto_1fr] gap-4 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-4 items-end">
           <div>
             <label className="text-xs text-zinc-500 block mb-1">Platform</label>
             <select

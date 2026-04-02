@@ -17,7 +17,7 @@ export function Strategy() {
       {/* Weekly Schedule */}
       <motion.section {...fade(0)}>
         <h2 className="text-[11px] text-white/30 uppercase tracking-wider font-medium mb-3">Weekly Schedule</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="glass glass-border rounded-xl p-5">
             <div className="text-xs text-white/40 uppercase tracking-wider mb-3">Daily — every day</div>
             <div className="space-y-2.5">
@@ -41,7 +41,7 @@ export function Strategy() {
             </div>
             <div className="mt-6 text-xs text-white/40 uppercase tracking-wider mb-3">Folder Structure</div>
             <div className="font-mono text-[11px] text-white/30 space-y-0.5">
-              <div>the-project-videos/</div>
+              <div>media/videos/</div>
               <div className="pl-3">2026-W12/</div>
               <div className="pl-6 text-white/20">uploads-2026-03-20/ <span className="text-white/10">← raw daily</span></div>
               <div className="pl-6 text-white/20">content/ <span className="text-white/10">← project folders</span></div>
@@ -77,7 +77,7 @@ export function Strategy() {
       {/* Distribution */}
       <motion.section {...fade(0.15)}>
         <h2 className="text-[11px] text-white/30 uppercase tracking-wider font-medium mb-3">Content Mix</h2>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
             { label: 'building', pct: 70, color: '#f97316', examples: ['the product demos', 'bugs', 'progress', 'features', 'launches'] },
             { label: 'studying', pct: 20, color: '#6366f1', examples: ['deep work', 'learning', 'university', 'insights'] },
@@ -134,8 +134,97 @@ export function Strategy() {
         </div>
       </motion.section>
 
+      {/* GTM Content Strategy */}
+      <motion.section {...fade(0.22)}>
+        <h2 className="text-[11px] text-white/30 uppercase tracking-wider font-medium mb-3">GTM Content Strategy</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Content Types */}
+          <div className="glass glass-border rounded-xl p-5">
+            <div className="text-xs text-violet-400/60 uppercase tracking-wider mb-3">Content Types</div>
+            <div className="space-y-3">
+              <div>
+                <div className="text-sm font-semibold text-violet-400 mb-1.5">Demo Clips</div>
+                <div className="space-y-1">
+                  {[
+                    'Bug catch demo — show the product catching a real agent failure',
+                    'Speed demo — 5-min setup, instant value',
+                    'Before/after — code with vs. without the product',
+                  ].map(item => (
+                    <div key={item} className="text-xs text-white/30 flex items-center gap-1.5">
+                      <span className="w-1 h-1 rounded-full bg-violet-500/40 shrink-0" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+                <div className="text-[10px] text-white/15 mt-1.5">30–60 seconds, real failures not fabricated, clear CTA</div>
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-violet-400 mb-1.5">Launch Posts</div>
+                <div className="space-y-1">
+                  {['Show HN post', 'Product Hunt launch', 'Blog announcement'].map(item => (
+                    <div key={item} className="text-xs text-white/30 flex items-center gap-1.5">
+                      <span className="w-1 h-1 rounded-full bg-violet-500/40 shrink-0" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-violet-400 mb-1.5">Ongoing Content</div>
+                <div className="space-y-1">
+                  {['X posts — short takes, threads, engagement', 'LinkedIn posts — founder journey, professional'].map(item => (
+                    <div key={item} className="text-xs text-white/30 flex items-center gap-1.5">
+                      <span className="w-1 h-1 rounded-full bg-violet-500/40 shrink-0" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Calendar + Messaging */}
+          <div className="space-y-4">
+            <div className="glass glass-border rounded-xl p-5">
+              <div className="text-xs text-violet-400/60 uppercase tracking-wider mb-3">Content Calendar — 5 GTM Phases</div>
+              <div className="space-y-2">
+                {[
+                  { phase: 'Pre-launch', desc: 'Build-in-public clips, teasers', color: '#f59e0b' },
+                  { phase: 'Soft launch', desc: 'Demo clips, early user stories', color: '#8b5cf6' },
+                  { phase: 'Public launch', desc: 'Show HN, Product Hunt, big push', color: '#3b82f6' },
+                  { phase: 'Post-launch', desc: 'User testimonials, case studies', color: '#10b981' },
+                  { phase: 'Growth', desc: 'Ongoing demos, outreach, community', color: '#06b6d4' },
+                ].map(p => (
+                  <div key={p.phase} className="flex items-center gap-3">
+                    <div className="w-1.5 h-5 rounded-full" style={{ backgroundColor: p.color }} />
+                    <span className="text-sm text-white/80 font-medium flex-1">{p.phase}</span>
+                    <span className="text-[10px] text-white/20">{p.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="glass glass-border rounded-xl p-5">
+              <div className="text-xs text-violet-400/60 uppercase tracking-wider mb-3">Key Messaging</div>
+              <div className="space-y-2">
+                {[
+                  'One-liner focus — lead with what it does in one sentence',
+                  'Problem-first — always start with the pain point',
+                  'Real data/numbers only — no vanity metrics',
+                  'Show, don\'t tell — every claim backed by a demo or screenshot',
+                ].map(rule => (
+                  <div key={rule} className="text-xs text-white/40 flex items-center gap-2">
+                    <span className="text-violet-500/60">◆</span>
+                    {rule}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.section>
+
       {/* Content Types + Platforms */}
-      <motion.div {...fade(0.25)} className="grid grid-cols-2 gap-6">
+      <motion.div {...fade(0.25)} className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <section>
           <h2 className="text-[11px] text-white/30 uppercase tracking-wider font-medium mb-3">Content Types — Rotate</h2>
           <div className="space-y-3">

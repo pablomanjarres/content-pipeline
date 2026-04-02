@@ -80,7 +80,7 @@ export function Pipeline({ onOpenVideo, onOpenPost }: Props) {
         </div>
 
         {showAddVideo && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4 flex gap-3 items-end">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4 flex flex-wrap gap-3 items-end">
             <div className="flex-1">
               <label className="text-xs text-zinc-500 block mb-1">Title</label>
               <input
@@ -97,6 +97,7 @@ export function Pipeline({ onOpenVideo, onOpenPost }: Props) {
                 <option value="building">Building</option>
                 <option value="studying">Studying</option>
                 <option value="workout">Workout</option>
+                <option value="gtm">GTM</option>
               </select>
             </div>
             <button onClick={handleAddVideo} className="bg-emerald-600 text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-emerald-500">Add</button>
@@ -155,7 +156,7 @@ export function Pipeline({ onOpenVideo, onOpenPost }: Props) {
         </div>
 
         {showAddPost && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4 flex gap-3 items-end">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4 flex flex-wrap gap-3 items-end">
             <div className="flex-1">
               <label className="text-xs text-zinc-500 block mb-1">Title</label>
               <input
@@ -181,6 +182,7 @@ export function Pipeline({ onOpenVideo, onOpenPost }: Props) {
                 <option value="building">Building</option>
                 <option value="studying">Studying</option>
                 <option value="workout">Workout</option>
+                <option value="gtm">GTM</option>
               </select>
             </div>
             <button onClick={handleAddPost} className="bg-emerald-600 text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-emerald-500">Add</button>

@@ -1,4 +1,12 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
+
+declare global {
+  interface Window {
+    electronAPI?: {
+      pickMedia: (weekKey: string, date: string) => Promise<{ uploaded: number }>
+    }
+  }
+}
 
 interface MediaFile {
   filename: string
@@ -37,7 +45,9 @@ export function DailyMedia({ weekKey }: Props) {
   const [expandedDay, setExpandedDay] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<{ path: string; name: string } | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [dragOver, setDragOver] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const days = getWeekDays(weekKey)
 
   // Auto-expand today
@@ -46,9 +56,42 @@ export function DailyMedia({ weekKey }: Props) {
     setExpandedDay(today)
   }, [])
 
+  // Paste support — Cmd+V uploads to today
   useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+      const files: File[] = []
+      for (const item of items) {
+        if (item.kind === 'file') {
+          const f = item.getAsFile()
+          if (f) files.push(f)
+        }
+      }
+      if (files.length) {
+        e.preventDefault()
+        const today = new Date().toISOString().split('T')[0]
+        setExpandedDay(today)
+        const dt = new DataTransfer()
+        files.forEach(f => dt.items.add(f))
+        handleUpload(today, dt.files)
+      }
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [weekKey])
+
+  const refreshMedia = useCallback(() => {
     fetch(`/api/media/week/${weekKey}`).then(r => r.json()).then(setMediaByDay)
   }, [weekKey])
+
+  useEffect(() => { refreshMedia() }, [refreshMedia])
+
+  // Auto-refresh every 3s to pick up files dropped via Finder
+  useEffect(() => {
+    const interval = setInterval(refreshMedia, 3000)
+    return () => clearInterval(interval)
+  }, [refreshMedia])
 
   const handleUpload = async (date: string, files: FileList) => {
     setUploading(true)
@@ -65,6 +108,29 @@ export function DailyMedia({ weekKey }: Props) {
       setUploading(false)
     }
   }
+
+  const handleDelete = async (filePath: string) => {
+    await fetch('/api/media/file', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filePath }),
+    })
+    const updated = await fetch(`/api/media/week/${weekKey}`).then(r => r.json())
+    setMediaByDay(updated)
+  }
+
+  const handleDrop = (date: string, e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(null)
+    const files = e.dataTransfer.files
+    if (files.length) handleUpload(date, files)
+  }
+
+  const handleImport = useCallback(async (date: string) => {
+    if (!window.electronAPI) return
+    const result = await window.electronAPI.pickMedia(weekKey, date)
+    if (result.uploaded > 0) refreshMedia()
+  }, [weekKey, refreshMedia])
 
   const handleRename = async (oldPath: string, newName: string) => {
     await fetch('/api/media/rename', {
@@ -84,8 +150,25 @@ export function DailyMedia({ weekKey }: Props) {
 
   const totalFiles = Object.values(mediaByDay).reduce((sum, files) => sum + files.length, 0)
 
+  const handleContainerDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(null)
+    const files = e.dataTransfer.files
+    if (files.length) {
+      const today = new Date().toISOString().split('T')[0]
+      setExpandedDay(today)
+      handleUpload(today, files)
+    }
+  }
+
   return (
-    <div className="glass glass-border rounded-2xl p-6">
+    <div
+      ref={containerRef}
+      className={`glass glass-border rounded-2xl p-3 sm:p-6 transition-colors ${dragOver === '_container' ? 'ring-1 ring-white/20' : ''}`}
+      onDragOver={e => { e.preventDefault(); if (!dragOver) setDragOver('_container') }}
+      onDragLeave={e => { if (e.currentTarget === containerRef.current && !containerRef.current?.contains(e.relatedTarget as Node)) setDragOver(null) }}
+      onDrop={e => { if (dragOver === '_container') handleContainerDrop(e) }}
+    >
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-bold tracking-tight">Daily <span className="font-serif italic font-normal text-white/70">Media</span></h2>
@@ -116,7 +199,12 @@ export function DailyMedia({ weekKey }: Props) {
 
               {/* Expanded content */}
               {isExpanded && (
-                <div className="px-3 pb-3 space-y-2">
+                <div
+                  className="px-3 pb-3 space-y-2"
+                  onDragOver={e => { e.preventDefault(); setDragOver(day.date) }}
+                  onDragLeave={() => setDragOver(null)}
+                  onDrop={e => handleDrop(day.date, e)}
+                >
                   {/* Files */}
                   {files.map(f => (
                     <div key={f.path} className="flex items-center gap-2 bg-zinc-800/50 rounded px-2.5 py-1.5 group">
@@ -140,6 +228,12 @@ export function DailyMedia({ weekKey }: Props) {
                       >
                         rename
                       </button>
+                      <button
+                        onClick={() => handleDelete(f.path)}
+                        className="text-[10px] text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        ×
+                      </button>
                     </div>
                   ))}
 
@@ -148,17 +242,29 @@ export function DailyMedia({ weekKey }: Props) {
                     ref={fileRef}
                     type="file"
                     multiple
-                    accept="video/*,image/*"
+                    accept="video/*,image/*,.mov,.mp4,.heic,.heif,.m4v"
                     className="hidden"
                     onChange={e => { if (e.target.files?.length) handleUpload(day.date, e.target.files) }}
                   />
-                  <button
-                    onClick={() => fileRef.current?.click()}
-                    disabled={uploading}
-                    className="w-full border border-dashed border-zinc-700 rounded-lg py-3 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-colors"
-                  >
-                    {uploading ? 'Uploading...' : '+ Drop or click to upload'}
-                  </button>
+                  <div className={`w-full border border-dashed rounded-lg transition-colors ${
+                    dragOver === day.date
+                      ? 'border-white/40 bg-white/5'
+                      : 'border-zinc-700'
+                  }`}>
+                    {dragOver === day.date ? (
+                      <div className="py-3 text-xs text-white/60 text-center">Drop to upload</div>
+                    ) : (
+                      <div className="flex items-center">
+                        <button
+                          onClick={() => window.electronAPI ? handleImport(day.date) : fileRef.current?.click()}
+                          disabled={uploading}
+                          className="flex-1 py-3 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                        >
+                          {uploading ? 'Uploading...' : '+ Import from Photos'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

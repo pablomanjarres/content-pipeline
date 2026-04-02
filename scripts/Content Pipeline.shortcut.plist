@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>WFWorkflowActions</key>
+	<array>
+		<dict>
+			<key>WFWorkflowActionIdentifier</key>
+			<string>is.workflow.actions.runshellscript</string>
+			<key>WFWorkflowActionParameters</key>
+			<dict>
+				<key>Script</key>
+				<string>#!/bin/bash
+MEDIA="./media/videos"
+DATE=$(date +%Y-%m-%d)
+YEAR=$(date +%G)
+WEEK=$(date +%V)
+DEST="${MEDIA}/${YEAR}-W${WEEK}/uploads-${DATE}"
+mkdir -p "$DEST"
+COUNT=0
+for f in "$@"; do
+  if [ -f "$f" ]; then
+    BASENAME=$(basename "$f")
+    cp "$f" "${DEST}/${BASENAME}"
+    COUNT=$((COUNT + 1))
+  fi
+done
+if [ $COUNT -gt 0 ]; then
+  osascript -e "display notification \"${COUNT} file(s) saved to Daily Media\" with title \"Content Pipeline\""
+else
+  osascript -e "display notification \"No files received. Args: $*\" with title \"Content Pipeline - Error\""
+fi</string>
+				<key>Input</key>
+				<string>as arguments</string>
+				<key>Shell</key>
+				<string>/bin/bash</string>
+			</dict>
+		</dict>
+	</array>
+	<key>WFWorkflowClientVersion</key>
+	<string>2612.0.15</string>
+	<key>WFWorkflowClientRelease</key>
+	<string>4.0</string>
+	<key>WFWorkflowIcon</key>
+	<dict>
+		<key>WFWorkflowIconStartColor</key>
+		<integer>463140863</integer>
+		<key>WFWorkflowIconGlyphNumber</key>
+		<integer>59752</integer>
+	</dict>
+	<key>WFWorkflowImportQuestions</key>
+	<array/>
+	<key>WFWorkflowInputContentItemClasses</key>
+	<array>
+		<string>WFImageContentItem</string>
+		<string>WFAVAssetContentItem</string>
+		<string>WFPhotoMediaContentItem</string>
+		<string>WFGenericFileContentItem</string>
+	</array>
+	<key>WFWorkflowMinimumClientVersion</key>
+	<integer>900</integer>
+	<key>WFWorkflowMinimumClientVersionString</key>
+	<string>900</string>
+	<key>WFWorkflowTypes</key>
+	<array>
+		<string>ActionExtension</string>
+	</array>
+	<key>WFWorkflowHasShortcutInputVariables</key>
+	<true/>
+</dict>
+</plist>

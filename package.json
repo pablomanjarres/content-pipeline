@@ -1,7 +1,7 @@
 {
   "name": "content-pipeline",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "main": "electron-entry.cjs",
   "scripts": {
@@ -11,7 +11,7 @@
     "dev:electron": "concurrently \"vite\" \"tsx watch server/index.ts\" \"sleep 3 && electron .\"",
     "build": "tsc -b && vite build",
     "build:app": "node scripts/build-app.js && electron-builder --mac --dir",
-    "install:app": "npm run build:app && cp -R \"dist-app/mac-arm64/Content Pipeline.app\" /Applications/ && echo 'Installed to /Applications'",
+    "install:app": "npm run build:app && cp -R \"dist-app/mac-arm64/Content Pipeline.app\" /Applications/ && codesign --force --deep --sign - \"/Applications/Content Pipeline.app\" && rm -rf \"dist-app/mac-arm64/Content Pipeline.app\" && echo 'Installed to /Applications'",
     "update:app": "npm run install:app",
     "start": "NODE_ENV=production tsx server/index.ts",
     "lint": "eslint .",
@@ -26,7 +26,9 @@
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "assets/app-icon.icns",
-      "target": ["dir"],
+      "target": [
+        "dir"
+      ],
       "darkModeSupport": true
     },
     "files": [
@@ -37,7 +39,10 @@
       "electron-entry.cjs"
     ],
     "extraResources": [
-      { "from": "data", "to": "data" }
+      {
+        "from": "data",
+        "to": "data"
+      }
     ],
     "asar": false
   },

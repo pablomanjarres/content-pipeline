@@ -34,6 +34,16 @@ await build({
   bundle: true,
   platform: 'node',
   target: 'node20',
+  format: 'cjs',
+  entryPoints: ['electron/preload.ts'],
+  outfile: 'dist-electron/preload.js',
+  external: nodeExternals,
+})
+
+await build({
+  bundle: true,
+  platform: 'node',
+  target: 'node20',
   format: 'esm',
   entryPoints: ['server/index.ts'],
   outfile: 'dist-electron/server.mjs',

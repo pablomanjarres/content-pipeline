@@ -51,6 +51,10 @@ function getMediaDir(): string {
   return getActiveProject().mediaDir
 }
 
+function getImagesDir(): string {
+  return getActiveProject().imagesDir || ''
+}
+
 function getProjectDataDir(): string {
   const project = getActiveProject()
   const dir = path.join(DATA_ROOT, 'projects', project.id)
@@ -444,7 +448,8 @@ app.delete('/api/media/file', (req, res) => {
   if (!filePath) return res.status(400).json({ error: 'filePath required' })
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' })
   const mediaDir = getMediaDir()
-  if (!filePath.startsWith(mediaDir)) return res.status(403).json({ error: 'Path outside media directory' })
+  const imagesDir = getImagesDir()
+  if (!filePath.startsWith(mediaDir) && !(imagesDir && filePath.startsWith(imagesDir))) return res.status(403).json({ error: 'Path outside media directory' })
   fs.unlinkSync(filePath)
   res.json({ deleted: filePath })
 })
@@ -915,6 +920,41 @@ app.put('/api/replies/:id', (req, res) => {
   res.json(replies[idx])
 })
 
+// --- Templates ---
+app.get('/api/templates', (_req, res) => {
+  res.json(read('templates'))
+})
+
+app.post('/api/templates', (req, res) => {
+  const template = {
+    id: uuid(),
+    name: req.body.name || '',
+    platform: req.body.platform || 'x',
+    template: req.body.template || '',
+    tone: req.body.tone || 'builder',
+    notes: req.body.notes || '',
+    createdAt: new Date().toISOString(),
+  }
+  upsert('templates', template)
+  res.status(201).json(template)
+})
+
+app.put('/api/templates/:id', (req, res) => {
+  const existing = findById('templates', req.params.id)
+  if (!existing) return res.status(404).json({ error: 'Not found' })
+  const updated = { ...existing, ...req.body, id: req.params.id }
+  upsert('templates', updated)
+  res.json(updated)
+})
+
+app.delete('/api/templates/:id', (req, res) => {
+  if (remove('templates', req.params.id)) {
+    res.json({ success: true })
+  } else {
+    res.status(404).json({ error: 'Not found' })
+  }
+})
+
 // --- Media directory listing ---
 app.get('/api/media', (_req, res) => {
   try {
@@ -925,32 +965,47 @@ app.get('/api/media', (_req, res) => {
   }
 })
 
-// List ALL media files across all weeks (for the Videos dashboard)
+// List ALL media files across all weeks (for the Media dashboard)
 app.get('/api/media/all', (_req, res) => {
   const mediaDir = getMediaDir()
-  if (!fs.existsSync(mediaDir)) return res.json([])
+  const imagesDir = getImagesDir()
 
   const allFiles: { filename: string; path: string; size: number; date: string; weekKey: string; modified: string; type: string }[] = []
   const videoExts = new Set(['.mov', '.mp4', '.m4v', '.mkv', '.avi', '.webm', '.hevc'])
   const imageExts = new Set(['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif', '.bmp', '.tiff'])
 
-  for (const weekDir of fs.readdirSync(mediaDir).filter(f => !f.startsWith('.'))) {
-    const weekPath = path.join(mediaDir, weekDir)
-    if (!fs.statSync(weekPath).isDirectory()) continue
+  // Scan weekly upload folders in mediaDir
+  if (fs.existsSync(mediaDir)) {
+    for (const weekDir of fs.readdirSync(mediaDir).filter(f => !f.startsWith('.'))) {
+      const weekPath = path.join(mediaDir, weekDir)
+      if (!fs.statSync(weekPath).isDirectory()) continue
 
-    for (const sub of fs.readdirSync(weekPath).filter(f => f.startsWith('uploads-'))) {
-      const subPath = path.join(weekPath, sub)
-      if (!fs.statSync(subPath).isDirectory()) continue
-      const date = sub.replace('uploads-', '')
+      for (const sub of fs.readdirSync(weekPath).filter(f => f.startsWith('uploads-'))) {
+        const subPath = path.join(weekPath, sub)
+        if (!fs.statSync(subPath).isDirectory()) continue
+        const date = sub.replace('uploads-', '')
 
-      for (const f of fs.readdirSync(subPath).filter(f => !f.startsWith('.'))) {
-        const fPath = path.join(subPath, f)
-        const stat = fs.statSync(fPath)
-        if (!stat.isFile()) continue
-        const ext = path.extname(f).toLowerCase()
-        const type = videoExts.has(ext) ? 'video' : imageExts.has(ext) ? 'image' : 'file'
-        allFiles.push({ filename: f, path: fPath, size: stat.size, date, weekKey: weekDir, modified: stat.mtime.toISOString(), type })
+        for (const f of fs.readdirSync(subPath).filter(f => !f.startsWith('.'))) {
+          const fPath = path.join(subPath, f)
+          const stat = fs.statSync(fPath)
+          if (!stat.isFile()) continue
+          const ext = path.extname(f).toLowerCase()
+          const type = videoExts.has(ext) ? 'video' : imageExts.has(ext) ? 'image' : 'file'
+          allFiles.push({ filename: f, path: fPath, size: stat.size, date, weekKey: weekDir, modified: stat.mtime.toISOString(), type })
+        }
       }
+    }
+  }
+
+  // Scan flat images directory
+  if (imagesDir && fs.existsSync(imagesDir)) {
+    for (const f of fs.readdirSync(imagesDir).filter(f => !f.startsWith('.'))) {
+      const fPath = path.join(imagesDir, f)
+      const stat = fs.statSync(fPath)
+      if (!stat.isFile()) continue
+      const ext = path.extname(f).toLowerCase()
+      if (!imageExts.has(ext)) continue
+      allFiles.push({ filename: f, path: fPath, size: stat.size, date: '', weekKey: 'images', modified: stat.mtime.toISOString(), type: 'image' })
     }
   }
 
@@ -963,7 +1018,8 @@ app.get('/api/media/serve', (req, res) => {
   const filePath = req.query.path as string
   if (!filePath) return res.status(400).json({ error: 'path required' })
   const mediaDir = getMediaDir()
-  if (!filePath.startsWith(mediaDir)) return res.status(403).json({ error: 'Path outside media directory' })
+  const imagesDir = getImagesDir()
+  if (!filePath.startsWith(mediaDir) && !(imagesDir && filePath.startsWith(imagesDir))) return res.status(403).json({ error: 'Path outside media directory' })
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' })
 
   const stat = fs.statSync(filePath)

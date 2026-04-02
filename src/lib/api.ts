@@ -1,4 +1,4 @@
-import type { Video, Clip, Idea, Post, Status, PostStatus, Repo, Generation, ReplyRequest, TonePreset, CommitEntry } from './types'
+import type { Video, Clip, Idea, Post, Status, PostStatus, Repo, Generation, ReplyRequest, TonePreset, CommitEntry, OutreachTemplate } from './types'
 
 const BASE = '/api'
 
@@ -90,3 +90,12 @@ export const applyGeneration = (id: string, index: number) =>
 export const getReplyHistory = () => json<ReplyRequest[]>('/replies')
 export const createReplyRequest = (data: { originalPost: string; platform: string; tone: TonePreset }) =>
   json<ReplyRequest>('/replies', { method: 'POST', body: JSON.stringify(data) })
+
+// Templates
+export const getTemplates = () => json<OutreachTemplate[]>('/templates')
+export const createTemplate = (data: Omit<OutreachTemplate, 'id' | 'createdAt'>) =>
+  json<OutreachTemplate>('/templates', { method: 'POST', body: JSON.stringify(data) })
+export const updateTemplate = (id: string, data: Partial<OutreachTemplate>) =>
+  json<OutreachTemplate>(`/templates/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+export const deleteTemplate = (id: string) =>
+  json<void>(`/templates/${id}`, { method: 'DELETE' })

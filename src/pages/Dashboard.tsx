@@ -52,7 +52,7 @@ export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
   return (
     <div className="space-y-8">
       {/* Hero Stats */}
-      <motion.div {...fade(0)} className="grid grid-cols-4 gap-4">
+      <motion.div {...fade(0)} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Videos', value: stats.totalVideos, gradient: 'from-blue-500/10 to-transparent', accent: '#3b82f6', page: 'pipeline' as const },
           { label: 'Posts', value: stats.totalPosts, gradient: 'from-purple-500/10 to-transparent', accent: '#8b5cf6', page: 'posts' as const },
@@ -88,7 +88,7 @@ export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
               <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider">Video Pipeline</h3>
               <button onClick={() => onNavigate('pipeline')} className="text-[11px] text-white/30 hover:text-white/60 transition-colors font-medium">View all →</button>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 overflow-x-auto">
               {STATUS_ORDER.map(s => {
                 const count = stats.byStatus[s] || 0
                 return (
@@ -107,7 +107,7 @@ export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
               <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider">Post Pipeline</h3>
               <button onClick={() => onNavigate('posts')} className="text-[11px] text-white/30 hover:text-white/60 transition-colors font-medium">View all →</button>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 overflow-x-auto">
               {POST_STATUS_ORDER.map(s => {
                 const count = stats.postsByStatus[s] || 0
                 return (
@@ -123,7 +123,7 @@ export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
           {/* Content Mix */}
           <div className="glass glass-border rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Content Mix</h3>
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               {(['building', 'studying', 'workout'] as const).map(cat => {
                 const count = stats.byCategory[cat] || 0
                 const total = stats.totalVideos || 1

@@ -1,7 +1,10 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, shell, dialog } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, shell, clipboard, dialog, ipcMain } from 'electron'
 import path from 'path'
+import fs from 'fs'
+import os from 'os'
 import { fileURLToPath } from 'url'
 import { fork, type ChildProcess } from 'child_process'
+import { execSync } from 'child_process'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const isDev = !app.isPackaged
@@ -15,14 +18,30 @@ if (process.platform === 'darwin') {
   app.setName('Content Pipeline')
 }
 
+// Enforce single instance — quit if another is already running
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+}
+
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let serverProcess: ChildProcess | null = null
 let isQuitting = false
 let localhostServerRunning = false
 
-const SERVER_PORT = 3001
-const DEV_URL = 'http://localhost:5173'
+const SERVER_PORT = parseInt(process.env.CONTENT_PIPELINE_PORT || '3001', 10)
+const DEV_URL = `http://localhost:${process.env.VITE_PORT || '5173'}`
+
+function getLanIP(): string {
+  const interfaces = os.networkInterfaces()
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (iface.family === 'IPv4' && !iface.internal) return iface.address
+    }
+  }
+  return 'localhost'
+}
 
 function createWindow() {
   const appIcon = nativeImage.createFromPath(path.join(__dirname, '..', 'assets', 'icon-512.png'))
@@ -40,6 +59,9 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: isDev
+        ? path.join(__dirname, '..', 'dist-electron', 'preload.js')
+        : path.join(__dirname, 'preload.js'),
     },
     show: false,
   })
@@ -150,7 +172,7 @@ async function buildTrayMenu() {
         },
     },
     {
-      label: 'Open the-project-videos',
+      label: 'Open Media',
       click: () => fetch(`http://localhost:${SERVER_PORT}/api/config/active`).then(r => r.json()).then((p: any) => shell.openPath(p.mediaDir)),
     },
     {
@@ -173,6 +195,13 @@ async function buildTrayMenu() {
     {
       label: 'Start Localhost',
       click: () => ensureServerAndOpen(),
+    },
+    {
+      label: `${getLanIP()}:${SERVER_PORT}`,
+      click: () => {
+        clipboard.writeText(`http://${getLanIP()}:${SERVER_PORT}`)
+        shell.openExternal(`http://${getLanIP()}:${SERVER_PORT}`)
+      },
     },
     { type: 'separator' },
 
@@ -206,7 +235,6 @@ function createTray() {
   // Refresh stats in menu every 30 seconds
   setInterval(() => buildTrayMenu(), 30000)
 
-  tray.on('click', () => showWindow())
 }
 
 async function isServerReachable(): Promise<boolean> {
@@ -228,7 +256,7 @@ async function startServer() {
   try {
     process.env.NODE_ENV = 'production'
     // Point to the actual project directory on disk for data + static files
-    process.env.CONTENT_PIPELINE_ROOT = '/Users/pablo/Projects/content-pipeline'
+    process.env.CONTENT_PIPELINE_ROOT = path.join(__dirname, '..')
     const serverPath = path.join(__dirname, 'server.mjs')
     await import(`file://${serverPath}`)
     console.log('Server started in-process')
@@ -358,6 +386,84 @@ function createAppMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
+// IPC: Export selected items from Photos via AppleScript
+ipcMain.handle('pick-media', async (_, weekKey: string, date: string) => {
+  const rootDir = process.env.CONTENT_PIPELINE_ROOT || path.join(__dirname, '..')
+  const configPath = path.join(rootDir, 'data', 'config.json')
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+  const activeProject = config.projects.find((p: any) => p.id === config.activeProject)
+  const destDir = path.join(activeProject.mediaDir, weekKey, `uploads-${date}`)
+  fs.mkdirSync(destDir, { recursive: true })
+
+  // Write AppleScript to a temp file to avoid shell escaping issues
+  // Check if Photos is running and has a selection
+  let photosRunning = false
+  try {
+    const check = execSync(`osascript -e 'tell application "System Events" to (name of processes) contains "Photos"'`, { encoding: 'utf-8' }).trim()
+    photosRunning = check === 'true'
+  } catch {}
+
+  if (!photosRunning) {
+    execSync(`open -a Photos`)
+    mainWindow?.focus()
+    dialog.showMessageBox(mainWindow!, {
+      type: 'info',
+      title: 'Select media in Photos',
+      message: 'Select the videos or photos you want to import in Photos, then click "Import from Photos" again.',
+    })
+    return { uploaded: 0 }
+  }
+
+  const scriptContent = [
+    'tell application "Photos"',
+    '  set sel to selection',
+    '  if (count of sel) is 0 then',
+    '    return "empty"',
+    '  end if',
+    '  set c to 0',
+    '  repeat with item_ref in sel',
+    '    try',
+    `      export {item_ref} to POSIX file "${destDir}"`,
+    '      set c to c + 1',
+    '    end try',
+    '  end repeat',
+    '  return c as text',
+    'end tell',
+  ].join('\n')
+
+  const scriptPath = path.join(destDir, '.import-script.scpt')
+  fs.writeFileSync(scriptPath, scriptContent)
+
+  try {
+    const result = execSync(`osascript "${scriptPath}"`, {
+      timeout: 120000,
+      encoding: 'utf-8',
+    }).trim()
+
+    fs.unlinkSync(scriptPath)
+
+    if (result === 'empty') {
+      mainWindow?.focus()
+      dialog.showMessageBox(mainWindow!, {
+        type: 'info',
+        title: 'No selection',
+        message: 'Select videos or photos in the Photos app first, then click "Import from Photos" again.',
+      })
+      return { uploaded: 0 }
+    }
+
+    return { uploaded: parseInt(result) || 0 }
+  } catch (err: any) {
+    try { fs.unlinkSync(scriptPath) } catch {}
+    dialog.showMessageBox(mainWindow!, {
+      type: 'error',
+      title: 'Import failed',
+      message: 'Could not export from Photos. When macOS asks for permission, click Allow.',
+    })
+    return { uploaded: 0 }
+  }
+})
+
 // App lifecycle
 app.on('ready', async () => {
   // Set dock icon
@@ -383,6 +489,17 @@ app.on('ready', async () => {
   createAppMenu()
   createTray()
   createWindow()
+
+
+
+})
+
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  }
 })
 
 app.on('activate', () => {

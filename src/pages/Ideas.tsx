@@ -54,8 +54,8 @@ export function Ideas({ onOpenVideo }: Props) {
 
       {showAdd && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4 space-y-3">
-          <div className="flex gap-3">
-            <div className="flex-1">
+          <div className="flex flex-wrap gap-3">
+            <div className="flex-1 min-w-[200px]">
               <label className="text-xs text-zinc-500 block mb-1">Title</label>
               <input
                 value={title}
@@ -75,6 +75,7 @@ export function Ideas({ onOpenVideo }: Props) {
                 <option value="building">Building</option>
                 <option value="studying">Studying</option>
                 <option value="workout">Workout</option>
+                <option value="gtm">GTM</option>
               </select>
             </div>
           </div>
