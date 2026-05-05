@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { getPost, updatePost, updatePostStatus } from '../lib/api'
-import { POST_STATUS_ORDER, POST_STATUS_LABELS, POST_STATUS_COLORS, PLATFORM_LABELS, CATEGORY_COLORS, type Post, type PostStatus, type PostPlatform, type Category } from '../lib/types'
+import { POST_STATUS_ORDER, POST_STATUS_LABELS, POST_STATUS_COLORS, PLATFORM_LABELS, CATEGORY_COLORS, type Post, type PostStatus, type Category } from '../lib/types'
 
 interface ProjectData {
   folderPath: string
@@ -36,7 +36,11 @@ export function PostDetail({ id, onBack }: Props) {
 
     const proj = await fetch(`/api/projects/${weekKey}/${slug}`).then(r => r.json())
     setProject(proj)
-    setContent(proj.script || '')
+    // The textarea below is bound to the post's `content` field. Initializing
+    // it from `proj.script` (the rendered script.md, which includes title +
+    // section headers + hook + cta) writes that whole block back to post.content
+    // on blur and corrupts the field. The canonical source is the post itself.
+    setContent(p.content || '')
   }
 
   useEffect(() => { load() }, [id])
@@ -55,13 +59,9 @@ export function PostDetail({ id, onBack }: Props) {
     } catch { setSaving(false) }
   }
 
-  const saveContent = async () => {
-    await fetch(`/api/projects/${weekKey}/${slug}/script`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
-    })
-  }
+  // The script.md mirror gets regenerated server-side from post fields on
+  // every PUT (see syncPostProjectFile). No need to PUT it directly here.
+  const saveContent = async () => {}
 
   const changeStatus = async (status: PostStatus) => {
     try {
@@ -161,7 +161,7 @@ export function PostDetail({ id, onBack }: Props) {
             {project?.exports.length === 0 && (
               <p className="text-sm text-white/15">No assets yet. Upload images or videos for this post.</p>
             )}
-            {project?.exports.map((f, i) => (
+            {project?.exports.map((f) => (
               <div key={f.path} className="flex items-center gap-3 py-2 border-b border-white/[0.03] last:border-0">
                 <span className="text-white/15">{f.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? '🖼' : '🎬'}</span>
                 <span className="text-sm text-white/60 flex-1 truncate">{f.filename}</span>
