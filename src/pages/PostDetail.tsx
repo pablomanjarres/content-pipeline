@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { getPost, updatePost, updatePostStatus } from '../lib/api'
 import { POST_STATUS_ORDER, POST_STATUS_LABELS, POST_STATUS_COLORS, PLATFORM_LABELS, CATEGORY_COLORS, type Post, type PostStatus, type Category } from '../lib/types'
+import { buildCaption, copyText, copyImage } from '../lib/clipboard'
 
 interface ProjectData {
   folderPath: string
@@ -19,7 +20,35 @@ export function PostDetail({ id, onBack }: Props) {
   const [project, setProject] = useState<ProjectData | null>(null)
   const [content, setContent] = useState('')
   const [saving, setSaving] = useState(false)
+  const [copied, setCopied] = useState<string | null>(null)
   const assetRef = useRef<HTMLInputElement>(null)
+
+  const flashCopied = (key: string) => {
+    setCopied(key)
+    setTimeout(() => setCopied(c => (c === key ? null : c)), 1500)
+  }
+
+  const handleCopyCaption = async () => {
+    if (!post) return
+    const text = buildCaption({ hook: post.hook, content, cta: post.cta })
+    if (!text) return
+    try {
+      await copyText(text)
+      flashCopied('caption')
+    } catch {
+      flashCopied('caption-failed')
+    }
+  }
+
+  const handleCopyImage = async (filePath: string, filename: string) => {
+    const url = `/api/media/serve?path=${encodeURIComponent(filePath)}`
+    try {
+      await copyImage(url, filename)
+      flashCopied(filePath)
+    } catch {
+      flashCopied(filePath + ':failed')
+    }
+  }
 
   const load = async () => {
     const p = await getPost(id)
@@ -120,7 +149,14 @@ export function PostDetail({ id, onBack }: Props) {
           <div className="glass glass-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
               <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium">Content</label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleCopyCaption}
+                  className="text-[11px] font-medium px-2 py-0.5 rounded-md cursor-pointer transition-colors bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/90"
+                  title="Copy hook + content + CTA"
+                >
+                  {copied === 'caption' ? 'Copied' : copied === 'caption-failed' ? 'Failed' : 'Copy caption'}
+                </button>
                 <span className="text-[10px] text-white/15 font-mono">content.md</span>
                 {charLimit && (
                   <span className={`text-[10px] font-mono ${charCount > charLimit ? 'text-red-400' : 'text-white/20'}`}>
@@ -161,13 +197,31 @@ export function PostDetail({ id, onBack }: Props) {
             {project?.exports.length === 0 && (
               <p className="text-sm text-white/15">No assets yet. Upload images or videos for this post.</p>
             )}
-            {project?.exports.map((f) => (
-              <div key={f.path} className="flex items-center gap-3 py-2 border-b border-white/[0.03] last:border-0">
-                <span className="text-white/15">{f.filename.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? '🖼' : '🎬'}</span>
-                <span className="text-sm text-white/60 flex-1 truncate">{f.filename}</span>
-                <span className="text-[10px] text-white/20">{formatSize(f.size)}</span>
-              </div>
-            ))}
+            {project?.exports.map((f) => {
+              const isImage = /\.(jpg|jpeg|png|gif|webp|heic|heif|bmp|tiff)$/i.test(f.filename)
+              const thumbUrl = `/api/media/serve?path=${encodeURIComponent(f.path)}`
+              const state = copied === f.path ? 'ok' : copied === f.path + ':failed' ? 'fail' : 'idle'
+              return (
+                <div key={f.path} className="flex items-center gap-3 py-2 border-b border-white/[0.03] last:border-0">
+                  {isImage ? (
+                    <img src={thumbUrl} alt="" className="w-10 h-10 rounded-md object-cover bg-white/5" />
+                  ) : (
+                    <span className="text-white/15 w-10 h-10 flex items-center justify-center">🎬</span>
+                  )}
+                  <span className="text-sm text-white/60 flex-1 truncate">{f.filename}</span>
+                  <span className="text-[10px] text-white/20">{formatSize(f.size)}</span>
+                  {isImage && (
+                    <button
+                      onClick={() => handleCopyImage(f.path, f.filename)}
+                      className="text-[11px] font-medium px-2 py-0.5 rounded-md cursor-pointer transition-colors bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/90"
+                      title="Copy image to clipboard"
+                    >
+                      {state === 'ok' ? 'Copied' : state === 'fail' ? 'Failed' : 'Copy'}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
           {/* Post URL */}
