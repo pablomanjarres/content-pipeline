@@ -51,9 +51,15 @@ export function Templates() {
     load()
   }
 
-  const handleEdit = (t: OutreachTemplate) => {
-    setEditingId(t.id)
-    setForm({ name: t.name, platform: t.platform, template: t.template, tone: t.tone, notes: t.notes })
+  const handleEdit = (template: OutreachTemplate) => {
+    setEditingId(template.id)
+    setForm({
+      name: template.name,
+      platform: template.platform,
+      template: template.template,
+      tone: template.tone,
+      notes: template.notes,
+    })
   }
 
   const handleUpdate = async () => {
@@ -114,6 +120,7 @@ export function Templates() {
           </select>
         </div>
       </div>
+
       <div>
         <label className="text-[10px] text-white/30 uppercase tracking-wider block mb-1">Template</label>
         <textarea
@@ -124,6 +131,7 @@ export function Templates() {
           className="w-full bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-sm outline-none focus:border-white/20 text-white placeholder:text-white/20 resize-none font-mono"
         />
       </div>
+
       <div>
         <label className="text-[10px] text-white/30 uppercase tracking-wider block mb-1">Notes</label>
         <input
@@ -133,6 +141,7 @@ export function Templates() {
           className="w-full bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-1.5 text-sm outline-none focus:border-white/20 text-white placeholder:text-white/20"
         />
       </div>
+
       <div className="flex gap-2">
         <button onClick={onSubmit} className="bg-white text-black px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-zinc-200 transition-colors">
           {submitLabel}
@@ -146,10 +155,10 @@ export function Templates() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Outreach <span className="font-serif italic font-normal text-white/70">Templates</span></h1>
-          <p className="text-sm text-white/30 mt-1">DM and message templates for GTM outreach.</p>
+          <p className="text-sm text-white/30 mt-1">Reusable patterns for messages, replies, and founder outreach.</p>
         </div>
         {!showAdd && !editingId && (
           <button
@@ -174,66 +183,66 @@ export function Templates() {
         )}
       </AnimatePresence>
 
-      {templates.length === 0 && !showAdd && (
+      {templates.length === 0 && !showAdd ? (
         <p className="text-white/30 text-sm">No templates yet. Create your first outreach template.</p>
+      ) : (
+        <div className="space-y-3">
+          {templates.map(template => (
+            <motion.div
+              key={template.id}
+              layout
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass glass-border rounded-xl p-5 group"
+            >
+              {editingId === template.id ? (
+                renderForm(handleUpdate, 'Update')
+              ) : (
+                <>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-base font-semibold text-white">{template.name}</span>
+                      <span
+                        className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded"
+                        style={{
+                          color: PLATFORM_COLORS[template.platform] || '#888',
+                          backgroundColor: (PLATFORM_COLORS[template.platform] || '#888') + '20',
+                        }}
+                      >
+                        {PLATFORM_LABELS[template.platform] || template.platform}
+                      </span>
+                      <span className="text-[10px] text-white/20 bg-white/[0.04] px-1.5 py-0.5 rounded capitalize">{template.tone}</span>
+                    </div>
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleEdit(template)}
+                        className="text-xs text-white/40 hover:text-white transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(template.id)}
+                        className="text-xs text-white/40 hover:text-red-400 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-white/50 leading-relaxed font-mono bg-white/[0.02] rounded-lg p-3 border border-white/[0.04]">
+                    {highlightPlaceholders(template.template)}
+                  </div>
+                  {template.notes && (
+                    <div className="text-xs text-white/20 mt-2.5 flex items-center gap-1.5">
+                      <span className="text-violet-500/40">*</span>
+                      {template.notes}
+                    </div>
+                  )}
+                </>
+              )}
+            </motion.div>
+          ))}
+        </div>
       )}
-
-      <div className="space-y-3">
-        {templates.map(t => (
-          <motion.div
-            key={t.id}
-            layout
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="glass glass-border rounded-xl p-5 group"
-          >
-            {editingId === t.id ? (
-              renderForm(handleUpdate, 'Update')
-            ) : (
-              <>
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-base font-semibold text-white">{t.name}</span>
-                    <span
-                      className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded"
-                      style={{
-                        color: PLATFORM_COLORS[t.platform] || '#888',
-                        backgroundColor: (PLATFORM_COLORS[t.platform] || '#888') + '20',
-                      }}
-                    >
-                      {PLATFORM_LABELS[t.platform] || t.platform}
-                    </span>
-                    <span className="text-[10px] text-white/20 bg-white/[0.04] px-1.5 py-0.5 rounded capitalize">{t.tone}</span>
-                  </div>
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => handleEdit(t)}
-                      className="text-xs text-white/40 hover:text-white transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(t.id)}
-                      className="text-xs text-white/40 hover:text-red-400 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-                <div className="text-sm text-white/50 leading-relaxed font-mono bg-white/[0.02] rounded-lg p-3 border border-white/[0.04]">
-                  {highlightPlaceholders(t.template)}
-                </div>
-                {t.notes && (
-                  <div className="text-xs text-white/20 mt-2.5 flex items-center gap-1.5">
-                    <span className="text-violet-500/40">*</span>
-                    {t.notes}
-                  </div>
-                )}
-              </>
-            )}
-          </motion.div>
-        ))}
-      </div>
     </div>
   )
 }

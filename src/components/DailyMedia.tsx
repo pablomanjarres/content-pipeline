@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { CATEGORY_COLORS, type Category } from '../lib/types'
 
 declare global {
   interface Window {
@@ -46,6 +47,7 @@ export function DailyMedia({ weekKey }: Props) {
   const [renaming, setRenaming] = useState<{ path: string; name: string } | null>(null)
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState<string | null>(null)
+  const [mediaTags, setMediaTags] = useState<Record<string, string>>({})
   const fileRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const days = getWeekDays(weekKey)
@@ -83,9 +85,28 @@ export function DailyMedia({ weekKey }: Props) {
 
   const refreshMedia = useCallback(() => {
     fetch(`/api/media/week/${weekKey}`).then(r => r.json()).then(setMediaByDay)
+    fetch('/api/media/tags').then(r => r.json()).then(setMediaTags)
   }, [weekKey])
 
   useEffect(() => { refreshMedia() }, [refreshMedia])
+
+  const TAGS: Category[] = ['building', 'studying', 'workout', 'gtm']
+  const TAG_LABELS: Record<Category, string> = { building: 'Build', studying: 'Study', workout: 'Workout', gtm: 'GTM' }
+
+  const toggleTag = async (filePath: string, tag: Category) => {
+    const current = mediaTags[filePath]
+    const newTag = current === tag ? null : tag
+    setMediaTags(prev => {
+      const next = { ...prev }
+      if (newTag) next[filePath] = newTag; else delete next[filePath]
+      return next
+    })
+    await fetch('/api/media/tags', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filePath, tag: newTag }),
+    })
+  }
 
   // Auto-refresh every 3s to pick up files dropped via Finder
   useEffect(() => {
@@ -206,36 +227,56 @@ export function DailyMedia({ weekKey }: Props) {
                   onDrop={e => handleDrop(day.date, e)}
                 >
                   {/* Files */}
-                  {files.map(f => (
-                    <div key={f.path} className="flex items-center gap-2 bg-zinc-800/50 rounded px-2.5 py-1.5 group">
-                      <span className="text-[10px] text-zinc-600">🎬</span>
-                      {renaming?.path === f.path ? (
-                        <input
-                          value={renaming.name}
-                          onChange={e => setRenaming({ ...renaming, name: e.target.value })}
-                          onBlur={() => handleRename(f.path, renaming.name)}
-                          onKeyDown={e => { if (e.key === 'Enter') handleRename(f.path, renaming.name); if (e.key === 'Escape') setRenaming(null) }}
-                          className="flex-1 bg-zinc-700 rounded px-1.5 py-0.5 text-xs outline-none text-white"
-                          autoFocus
-                        />
-                      ) : (
-                        <span className="text-xs text-zinc-300 flex-1 truncate">{f.filename}</span>
-                      )}
-                      <span className="text-[10px] text-zinc-600">{formatSize(f.size)}</span>
-                      <button
-                        onClick={() => setRenaming({ path: f.path, name: f.filename })}
-                        className="text-[10px] text-zinc-600 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        rename
-                      </button>
-                      <button
-                        onClick={() => handleDelete(f.path)}
-                        className="text-[10px] text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        ×
-                      </button>
+                  {files.map(f => {
+                    const activeTag = mediaTags[f.path] as Category | undefined
+                    return (
+                    <div key={f.path} className="bg-zinc-800/50 rounded px-2.5 py-1.5 group">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-zinc-600">🎬</span>
+                        {renaming?.path === f.path ? (
+                          <input
+                            value={renaming.name}
+                            onChange={e => setRenaming({ ...renaming, name: e.target.value })}
+                            onBlur={() => handleRename(f.path, renaming.name)}
+                            onKeyDown={e => { if (e.key === 'Enter') handleRename(f.path, renaming.name); if (e.key === 'Escape') setRenaming(null) }}
+                            className="flex-1 bg-zinc-700 rounded px-1.5 py-0.5 text-xs outline-none text-white"
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="text-xs text-zinc-300 flex-1 truncate">{f.filename}</span>
+                        )}
+                        <span className="text-[10px] text-zinc-600">{formatSize(f.size)}</span>
+                        <button
+                          onClick={() => setRenaming({ path: f.path, name: f.filename })}
+                          className="text-[10px] text-zinc-600 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          rename
+                        </button>
+                        <button
+                          onClick={() => handleDelete(f.path)}
+                          className="text-[10px] text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="flex gap-1 mt-1.5 ml-5">
+                        {TAGS.map(tag => (
+                          <button
+                            key={tag}
+                            onClick={() => toggleTag(f.path, tag)}
+                            className="text-[9px] font-medium px-1.5 py-0.5 rounded transition-all cursor-pointer"
+                            style={activeTag === tag
+                              ? { backgroundColor: CATEGORY_COLORS[tag] + '25', color: CATEGORY_COLORS[tag], borderWidth: 1, borderColor: CATEGORY_COLORS[tag] + '40' }
+                              : { backgroundColor: 'transparent', color: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }
+                            }
+                          >
+                            {TAG_LABELS[tag]}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  ))}
+                    )
+                  })}
 
                   {/* Upload */}
                   <input

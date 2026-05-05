@@ -1,11 +1,13 @@
 import fs from 'fs'
 import path from 'path'
+import os from 'os'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = process.env.CONTENT_PIPELINE_ROOT || path.join(__dirname, '..')
 const DATA_ROOT = path.join(PROJECT_ROOT, 'data')
 const CONFIG_PATH = path.join(DATA_ROOT, 'config.json')
+const ICLOUD_DATA_ROOT = path.join(os.homedir(), 'Library', 'Mobile Documents', 'com~apple~CloudDocs', 'Content Pipeline', 'data')
 
 function getDataDir(): string {
   try {
@@ -34,6 +36,7 @@ export function write<T>(file: string, data: T[]): void {
   const tmpPath = filepath + '.tmp'
   fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2))
   fs.renameSync(tmpPath, filepath)
+  mirrorDataFile(filepath)
 }
 
 export function findById<T extends { id: string }>(file: string, id: string): T | undefined {
@@ -58,4 +61,17 @@ export function remove(file: string, id: string): boolean {
   if (filtered.length === items.length) return false
   write(file, filtered)
   return true
+}
+
+function mirrorDataFile(filepath: string): void {
+  try {
+    if (!fs.existsSync(path.dirname(ICLOUD_DATA_ROOT))) return
+    const rel = path.relative(DATA_ROOT, filepath)
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return
+    const target = path.join(ICLOUD_DATA_ROOT, rel)
+    fs.mkdirSync(path.dirname(target), { recursive: true })
+    fs.copyFileSync(filepath, target)
+  } catch {
+    // Mirroring should never break the local source-of-truth write.
+  }
 }

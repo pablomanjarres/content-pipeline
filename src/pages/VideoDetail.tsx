@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
-import { motion } from 'framer-motion'
 import { getVideo, updateVideo, updateVideoStatus } from '../lib/api'
-import { STATUS_ORDER, STATUS_LABELS, STATUS_COLORS, CATEGORY_COLORS, type Video, type Status, type Category } from '../lib/types'
+import { STATUS_ORDER, STATUS_LABELS, STATUS_COLORS, CATEGORY_COLORS, VIDEO_PLATFORMS, VIDEO_PLATFORM_LABELS, type Video, type Status, type Category, type VideoPlatform } from '../lib/types'
 
 interface ProjectData {
   folderPath: string
@@ -42,13 +41,13 @@ export function VideoDetail({ id, onBack }: Props) {
     await fetch('/api/projects/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ weekKey, slug, title: v.title, type: 'video' }),
+      body: JSON.stringify({ weekKey, slug, title: v.title, type: 'video', hook: v.hook, script: v.script, cta: v.cta }),
     })
 
     // Load project
     const proj = await fetch(`/api/projects/${weekKey}/${slug}`).then(r => r.json())
     setProject(proj)
-    setScript(proj.script || '')
+    setScript(hasMeaningfulProjectScript(proj.script) ? proj.script : buildProjectScript(v))
   }
 
   useEffect(() => { load() }, [id])
@@ -73,6 +72,10 @@ export function VideoDetail({ id, onBack }: Props) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: script }),
     })
+    const fields = extractVideoFields(script)
+    if (fields.hook || fields.script || fields.cta) {
+      await save(fields)
+    }
   }
 
   const changeStatus = async (status: Status) => {
@@ -80,6 +83,20 @@ export function VideoDetail({ id, onBack }: Props) {
       const updated = await updateVideoStatus(id, status)
       setVideo(updated)
     } catch {}
+  }
+
+  const setPlatformPosted = async (platform: VideoPlatform, posted: boolean) => {
+    const current = video.platforms?.[platform] || { caption: '', hashtags: [], posted: false, url: null, postedAt: null }
+    const platforms = {
+      ...video.platforms,
+      [platform]: {
+        ...current,
+        posted,
+        postedAt: posted ? (current.postedAt || new Date().toISOString()) : null,
+      },
+    }
+    setVideo({ ...video, platforms })
+    await save({ platforms })
   }
 
   const loadBrowseSources = async () => {
@@ -269,6 +286,31 @@ export function VideoDetail({ id, onBack }: Props) {
 
         {/* Sidebar */}
         <div className="space-y-4">
+          {/* Upload platforms */}
+          <div className="glass glass-border rounded-xl p-4">
+            <label className="text-[11px] text-white/30 uppercase tracking-wider font-medium block mb-2">Upload Platforms</label>
+            <div className="space-y-1.5">
+              {VIDEO_PLATFORMS.map(platform => {
+                const entry = video.platforms?.[platform]
+                const posted = Boolean(entry?.posted)
+                return (
+                  <button
+                    key={platform}
+                    onClick={() => setPlatformPosted(platform, !posted)}
+                    className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-all ${
+                      posted
+                        ? 'bg-emerald-500/10 text-emerald-300'
+                        : 'bg-white/[0.03] text-white/55 hover:bg-white/[0.06] hover:text-white/75'
+                    }`}
+                  >
+                    <span className="text-sm font-medium">{VIDEO_PLATFORM_LABELS[platform]}</span>
+                    <span className="text-[11px]">{posted ? 'Posted' : 'Pending'}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           {/* Project folder */}
           {project?.folderPath && (
             <div className="glass glass-border rounded-xl p-4">
@@ -372,4 +414,58 @@ function getWeekKey(dateStr: string): string {
 
 function slugify(title: string): string {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 50)
+}
+
+function buildProjectScript(video: Video): string {
+  return [
+    `# ${video.title}`,
+    '',
+    '## Hook',
+    '',
+    video.hook || '',
+    '',
+    '## Script',
+    '',
+    video.script || '',
+    '',
+    '## CTA',
+    '',
+    video.cta || '',
+    '',
+  ].join('\n')
+}
+
+function hasMeaningfulProjectScript(value: string | undefined): boolean {
+  if (!value) return false
+  return value
+    .replace(/^# .+$/gm, '')
+    .replace(/^##\s*(Hook|Script|CTA|Content)$/gm, '')
+    .trim().length > 0
+}
+
+function sectionFromMarkdown(value: string, label: string): string {
+  const wanted = label.toLowerCase()
+  const lines = value.split(/\r?\n/)
+  const out: string[] = []
+  let capturing = false
+
+  for (const line of lines) {
+    const heading = line.match(/^##\s*(.+?)\s*$/)
+    if (heading) {
+      if (capturing) break
+      capturing = heading[1].toLowerCase() === wanted
+      continue
+    }
+    if (capturing) out.push(line)
+  }
+
+  return out.join('\n').trim()
+}
+
+function extractVideoFields(value: string): Partial<Video> {
+  return {
+    hook: sectionFromMarkdown(value, 'Hook'),
+    script: sectionFromMarkdown(value, 'Script'),
+    cta: sectionFromMarkdown(value, 'CTA'),
+  }
 }

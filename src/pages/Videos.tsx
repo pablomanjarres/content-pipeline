@@ -172,6 +172,19 @@ export function Videos() {
 
   const clearSelection = () => setSelected(new Set())
 
+  const deleteSelected = async () => {
+    const paths = Array.from(selected)
+    for (const filePath of paths) {
+      await fetch('/api/media/file', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath }),
+      })
+    }
+    setFiles(prev => prev.filter(f => !selected.has(f.path)))
+    clearSelection()
+  }
+
   const openPicker = async () => {
     const videos = await getVideos()
     setPipelineVideos(videos)
@@ -355,8 +368,14 @@ export function Videos() {
               Send to video
             </button>
             <button
+              onClick={deleteSelected}
+              className="text-red-400/60 hover:text-red-400 transition-colors text-sm font-medium cursor-pointer"
+            >
+              Delete
+            </button>
+            <button
               onClick={clearSelection}
-              className="text-white/30 hover:text-white/60 transition-colors text-sm"
+              className="text-white/30 hover:text-white/60 transition-colors text-sm cursor-pointer"
             >
               Clear
             </button>

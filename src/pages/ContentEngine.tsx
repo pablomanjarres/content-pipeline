@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getRepos, addRepo, getGenerations, createGeneration, updateGeneration, applyGeneration, createReplyRequest, getReplyHistory } from '../lib/api'
+import { getRepos, addRepo, getGenerations, createGeneration, applyGeneration, createReplyRequest, getReplyHistory } from '../lib/api'
 import type { Repo, Generation, ReplyRequest, TonePreset } from '../lib/types'
 import { ToneSelector } from '../components/ToneSelector'
 import { GenerationCard } from '../components/GenerationCard'

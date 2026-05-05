@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { getStats, getVideos, getPosts } from '../lib/api'
-import { STATUS_COLORS, STATUS_LABELS, STATUS_ORDER, CATEGORY_COLORS, POST_STATUS_ORDER, POST_STATUS_LABELS, POST_STATUS_COLORS, type Video, type Post } from '../lib/types'
-import { WeeklyTracker } from '../components/WeeklyTracker'
+import { getStats, getTemplates } from '../lib/api'
+import { CATEGORY_COLORS, PLATFORM_LABELS, type OutreachTemplate } from '../lib/types'
 import { DailyMedia } from '../components/DailyMedia'
+import { LatestPostGroupCard } from '../components/LatestPostGroupCard'
 
 interface Props {
   onOpenVideo: (id: string) => void
   onOpenPost: (id: string) => void
-  onNavigate: (page: 'dashboard' | 'pipeline' | 'ideas' | 'posts' | 'strategy') => void
+  onNavigate: (page: 'dashboard' | 'videos' | 'posts' | 'strategy' | 'templates' | 'ideas' | 'outbound' | 'sent' | 'shorts') => void
 }
 
 function getWeekKey() {
@@ -24,19 +24,18 @@ function getWeekKey() {
 const fade = (delay: number) => ({
   initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.5, delay, ease: [0.4, 0, 0.2, 1] },
+  transition: { duration: 0.5, delay, ease: [0.4, 0, 0.2, 1] as const },
 })
 
 export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
   const [stats, setStats] = useState<any>(null)
-  const [videos, setVideos] = useState<Video[]>([])
-  const [posts, setPosts] = useState<Post[]>([])
+  const [templates, setTemplates] = useState<OutreachTemplate[]>([])
+  const [templateSearch, setTemplateSearch] = useState('')
   const weekKey = getWeekKey()
 
   useEffect(() => {
     getStats().then(setStats)
-    getVideos().then(setVideos)
-    getPosts().then(setPosts)
+    getTemplates().then(setTemplates)
   }, [])
 
   if (!stats) return (
@@ -45,82 +44,20 @@ export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
     </div>
   )
 
-  const recent = [...videos, ...posts.map(p => ({ ...p }))]
-    .sort((a: any, b: any) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, 6)
+  const filteredTemplates = templates.filter((t) => {
+    const q = templateSearch.trim().toLowerCase()
+    if (!q) return true
+    return [t.name, t.platform, t.tone, t.notes, t.template].some((v) => v.toLowerCase().includes(q))
+  })
 
   return (
-    <div className="space-y-8">
-      {/* Hero Stats */}
-      <motion.div {...fade(0)} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Videos', value: stats.totalVideos, gradient: 'from-blue-500/10 to-transparent', accent: '#3b82f6', page: 'pipeline' as const },
-          { label: 'Posts', value: stats.totalPosts, gradient: 'from-purple-500/10 to-transparent', accent: '#8b5cf6', page: 'posts' as const },
-          { label: 'Ideas', value: stats.totalIdeas, gradient: 'from-amber-500/10 to-transparent', accent: '#f59e0b', page: 'ideas' as const },
-          { label: 'Clips', value: stats.totalClips, gradient: 'from-white/[0.03] to-transparent', accent: '#525252', page: null },
-        ].map(s => (
-          <motion.div
-            key={s.label}
-            whileHover={s.page ? { scale: 1.02 } : undefined}
-            whileTap={s.page ? { scale: 0.98 } : undefined}
-            onClick={() => s.page && onNavigate(s.page)}
-            className={`glass glass-border rounded-2xl p-5 bg-gradient-to-br ${s.gradient} ${s.page ? 'cursor-pointer' : ''}`}
-          >
-            <div className="text-4xl font-bold tabular-nums tracking-tight" style={{ color: s.value > 0 ? s.accent : 'rgba(255,255,255,0.1)' }}>
-              {s.value}
-            </div>
-            <div className="text-[13px] text-white/40 mt-1.5 font-medium">{s.label}</div>
-          </motion.div>
-        ))}
+    <div className="space-y-6 md:space-y-8">
+      <motion.div {...fade(0)}>
+        <LatestPostGroupCard onOpenPost={onOpenPost} onOpenVideo={onOpenVideo} />
       </motion.div>
 
-      {/* Weekly Tracker */}
-      <motion.div {...fade(0.1)}>
-        <WeeklyTracker onOpenVideo={onOpenVideo} onOpenPost={onOpenPost} />
-      </motion.div>
-
-      {/* Two-column: Pipelines + Media */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <motion.div {...fade(0.2)} className="lg:col-span-2 space-y-5">
-          {/* Video Pipeline */}
-          <div className="glass glass-border rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider">Video Pipeline</h3>
-              <button onClick={() => onNavigate('pipeline')} className="text-[11px] text-white/30 hover:text-white/60 transition-colors font-medium">View all →</button>
-            </div>
-            <div className="flex gap-2 overflow-x-auto">
-              {STATUS_ORDER.map(s => {
-                const count = stats.byStatus[s] || 0
-                return (
-                  <div key={s} className="flex-1 text-center rounded-xl bg-white/[0.02] py-3">
-                    <div className="text-xl font-bold tabular-nums" style={{ color: count > 0 ? STATUS_COLORS[s] : 'rgba(255,255,255,0.08)' }}>{count}</div>
-                    <div className="text-[10px] text-white/25 mt-1 font-medium">{STATUS_LABELS[s]}</div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Post Pipeline */}
-          <div className="glass glass-border rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider">Post Pipeline</h3>
-              <button onClick={() => onNavigate('posts')} className="text-[11px] text-white/30 hover:text-white/60 transition-colors font-medium">View all →</button>
-            </div>
-            <div className="flex gap-2 overflow-x-auto">
-              {POST_STATUS_ORDER.map(s => {
-                const count = stats.postsByStatus[s] || 0
-                return (
-                  <div key={s} className="flex-1 text-center rounded-xl bg-white/[0.02] py-3">
-                    <div className="text-xl font-bold tabular-nums" style={{ color: count > 0 ? POST_STATUS_COLORS[s] : 'rgba(255,255,255,0.08)' }}>{count}</div>
-                    <div className="text-[10px] text-white/25 mt-1 font-medium">{POST_STATUS_LABELS[s]}</div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Content Mix */}
           <div className="glass glass-border rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Content Mix</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
@@ -144,38 +81,58 @@ export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
             </div>
           </div>
 
-          {/* Recent */}
-          {recent.length > 0 && (
-            <div className="glass glass-border rounded-2xl p-5">
-              <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Recent Activity</h3>
-              <div className="space-y-1">
-                {recent.map((item: any) => {
-                  const isVideo = 'script' in item
-                  const status = item.status
-                  const color = isVideo ? STATUS_COLORS[status] : POST_STATUS_COLORS[status]
-                  const statusLabel = isVideo ? STATUS_LABELS[status] : POST_STATUS_LABELS[status]
-                  return (
-                    <motion.button
-                      key={item.id}
-                      whileHover={{ x: 4 }}
-                      onClick={() => isVideo ? onOpenVideo(item.id) : onOpenPost(item.id)}
-                      className="flex items-center gap-3 w-full text-left rounded-xl px-3 py-2.5 hover:bg-white/[0.03] transition-colors"
-                    >
-                      <div className="w-1 h-5 rounded-full" style={{ backgroundColor: color }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[13px] text-white/80 truncate font-medium">{item.title}</div>
-                      </div>
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: color + '15', color }}>{statusLabel}</span>
-                      <span className="text-[10px] text-white/20 font-medium w-10 text-right">{isVideo ? 'video' : 'post'}</span>
-                    </motion.button>
-                  )
-                })}
+          <div className="glass glass-border rounded-2xl p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+              <div>
+                <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider">Templates</h3>
+                <div className="text-[11px] text-white/25 mt-1">{filteredTemplates.length} of {templates.length}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  value={templateSearch}
+                  onChange={(e) => setTemplateSearch(e.target.value)}
+                  placeholder="Search templates..."
+                  className="w-full sm:w-64 bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-1.5 text-sm outline-none focus:border-white/20 text-white placeholder:text-white/20"
+                />
+                <button
+                  onClick={() => onNavigate('templates')}
+                  className="shrink-0 text-[11px] text-white/30 hover:text-white/70 transition-colors font-medium"
+                >
+                  Manage
+                </button>
               </div>
             </div>
-          )}
+
+            {filteredTemplates.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {filteredTemplates.slice(0, 8).map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => onNavigate('templates')}
+                    className="text-left rounded-xl bg-white/[0.02] border border-white/[0.04] p-4 hover:bg-white/[0.04] transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[13px] font-semibold text-white/85 truncate">{t.name}</span>
+                      <span className="text-[10px] text-white/30 bg-white/[0.05] px-1.5 py-0.5 rounded">
+                        {PLATFORM_LABELS[t.platform]}
+                      </span>
+                      <span className="text-[10px] text-white/20 capitalize">{t.tone}</span>
+                    </div>
+                    <div className="text-[12px] text-white/45 line-clamp-3 font-mono leading-relaxed">
+                      {t.template}
+                    </div>
+                    {t.notes && <div className="text-[11px] text-white/25 mt-2 truncate">{t.notes}</div>}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-[13px] text-white/25 rounded-xl bg-white/[0.02] border border-white/[0.04] p-4">
+                No templates match that search.
+              </div>
+            )}
+          </div>
         </motion.div>
 
-        {/* Right: Daily Media */}
         <motion.div {...fade(0.3)}>
           <DailyMedia weekKey={weekKey} />
         </motion.div>

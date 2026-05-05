@@ -2,19 +2,29 @@ export type Status = 'idea' | 'scripted' | 'filming' | 'editing' | 'ready' | 'sc
 
 export type Category = 'building' | 'studying' | 'workout' | 'gtm'
 
-export type Platform = 'instagram' | 'tiktok' | 'youtube' | 'linkedin' | 'x' | 'reddit'
+export type Platform = 'instagram' | 'tiktok' | 'youtube' | 'linkedin' | 'threads' | 'x' | 'reddit'
+export type VideoPlatform = 'linkedin' | 'instagram' | 'threads' | 'tiktok' | 'youtube'
 
-export const VIDEO_PLATFORMS: Platform[] = ['instagram', 'tiktok', 'youtube']
+export const VIDEO_PLATFORMS: VideoPlatform[] = ['linkedin', 'instagram', 'threads', 'tiktok', 'youtube']
 export const POST_PLATFORMS: Platform[] = ['linkedin', 'x', 'reddit']
-export const ALL_PLATFORMS: Platform[] = [...VIDEO_PLATFORMS, ...POST_PLATFORMS]
+export const ALL_PLATFORMS: Platform[] = ['instagram', 'tiktok', 'youtube', 'linkedin', 'threads', 'x', 'reddit']
 
 export const PLATFORM_LABELS: Record<Platform, string> = {
   instagram: 'Instagram',
   tiktok: 'TikTok',
   youtube: 'YouTube',
   linkedin: 'LinkedIn',
+  threads: 'Threads',
   x: 'X',
   reddit: 'Reddit',
+}
+
+export const VIDEO_PLATFORM_LABELS: Record<VideoPlatform, string> = {
+  linkedin: 'LinkedIn',
+  instagram: 'Instagram Reels',
+  threads: 'Threads',
+  tiktok: 'TikTok',
+  youtube: 'YouTube Shorts',
 }
 
 export interface PlatformEntry {
@@ -33,7 +43,7 @@ export interface Video {
   hook: string
   script: string
   cta: string
-  platforms: Record<Platform, PlatformEntry>
+  platforms: Record<VideoPlatform, PlatformEntry>
   clipPaths: string[]
   tags: string[]
   notes: string
@@ -60,6 +70,7 @@ export interface Idea {
   category: Category | null
   hook: string
   tags: string[]
+  mediaPaths: string[]
   convertedToVideoId: string | null
   createdAt: string
 }
@@ -67,6 +78,9 @@ export interface Idea {
 export type PostStatus = 'draft' | 'written' | 'scheduled' | 'posted'
 
 export type PostPlatform = 'linkedin' | 'x' | 'reddit'
+
+export type MediaStatus = 'none' | 'rendering' | 'ready' | 'failed'
+export type MediaKind = 'video' | 'image'
 
 export interface Post {
   id: string
@@ -84,6 +98,48 @@ export interface Post {
   createdAt: string
   updatedAt: string
   postedAt: string | null
+  mediaPath: string | null
+  mediaKind: MediaKind | null
+  mediaStatus: MediaStatus
+  generatorRunId: string | null
+}
+
+export type VoicePostDraftKind = 'x' | 'linkedin' | 'reflection' | 'shortVideo'
+
+export interface VoiceAnchorRef {
+  file: string
+  excerpt: string
+  tags: string[]
+}
+
+export interface GeneratorTemplateChoice {
+  type: 'existing' | 'ai-create'
+  templateId: string
+  compositionId: string | null
+  params: Record<string, unknown>
+  reason: string
+}
+
+export type GeneratorRunStatus = 'drafting' | 'rendering' | 'ready' | 'failed'
+
+export interface GeneratorRun {
+  id: string
+  featureDescription: string
+  voiceAnchors: VoiceAnchorRef[]
+  templateChoice: GeneratorTemplateChoice | null
+  forgeTaskId: string | null
+  mediaPath: string | null
+  mediaKind: MediaKind | null
+  postIds: string[]
+  videoId: string | null
+  // Short video tied to THIS specific batch. Multiple batches per day can each
+  // have their own short. Falls back to weekly[date].daily-video if not set.
+  shortVideoId: string | null
+  status: GeneratorRunStatus
+  error: string | null
+  createdAt: string
+  updatedAt: string
+  scheduledFor: string | null
 }
 
 export const POST_STATUS_ORDER: PostStatus[] = ['draft', 'written', 'scheduled', 'posted']
@@ -211,4 +267,93 @@ export interface OutreachTemplate {
   tone: string
   notes: string
   createdAt: string
+}
+
+export type OutreachKind = 'dm' | 'reply'
+export type OutreachStatus = 'draft' | 'sent'
+
+// --- Outbound (openclaw X pipeline) ---
+// AI-drafted reply candidates for X posts surfaced by the openclaw discovery skill.
+// Distinct from the Dms surface, which is for manually saved DMs/replies.
+
+export type OutboundAngle = 'empathetic' | 'technical' | 'contrarian'
+export type OutboundDraftKind = 'reply' | 'dm' | 'repost'
+export type OutboundStatus = 'new' | 'drafted' | 'picked' | 'sent' | 'partial_sent' | 'skipped'
+
+export interface OutboundDraft {
+  id: string
+  kind: OutboundDraftKind
+  angle: OutboundAngle
+  body: string
+  editedBody: string | null
+  charCount: number
+  sentAt?: string | null
+}
+
+export type OutboundPlatform = 'x' | 'linkedin' | 'reddit'
+
+export const OUTBOUND_PLATFORM_LABELS: Record<OutboundPlatform, string> = {
+  x: 'X',
+  linkedin: 'LinkedIn',
+  reddit: 'Reddit',
+}
+
+export interface OutboundThread {
+  id: string
+  leadId: string
+  batchNumber: number | null
+  platform: OutboundPlatform
+  authorHandle: string
+  authorId: string
+  authorFollowers: number | null
+  allowsDms: boolean | null
+  originalPostId: string
+  originalPostText: string
+  originalPostUrl: string
+  postedAt: string
+  matchedTrigger: string | null
+  drafts: OutboundDraft[]
+  selectedDraftId: string | null
+  status: OutboundStatus
+  skipReason: string | null
+  createdAt: string
+  updatedAt: string
+  sentAt: string | null
+}
+
+export const OUTBOUND_ANGLE_LABELS: Record<OutboundAngle, string> = {
+  empathetic: 'Empathetic',
+  technical: 'Technical',
+  contrarian: 'Contrarian',
+}
+
+export const OUTBOUND_KIND_LABELS: Record<OutboundDraftKind, string> = {
+  reply: 'Reply',
+  dm: 'DM',
+  repost: 'Repost',
+}
+
+export interface Trigger {
+  id: string
+  phrase: string
+  active: boolean
+  notes: string | null
+  createdAt: string
+}
+
+export interface SentDm {
+  id: string
+  kind: OutreachKind
+  status: OutreachStatus
+  platform: Platform
+  recipientName: string
+  recipientHandle: string
+  message: string
+  context: string
+  url: string | null
+  replyToUrl: string | null
+  notes: string
+  sentAt: string
+  createdAt: string
+  updatedAt: string
 }
