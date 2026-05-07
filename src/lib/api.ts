@@ -331,6 +331,38 @@ export const closeCurrentBatch = (platform: string = 'x') =>
 export const getOutboundStats = () =>
   json<{ last_hour: number, last_24h: number, by_hour: Array<{ hour: string, n: number }> }>('/outbound/stats')
 
+// Watchlist handles — tiered list of accounts the radar polls.
+export type WatchlistTier = 'T1' | 'T2' | 'T3'
+export interface WatchlistHandle {
+  id: string
+  name: string
+  x_handle: string | null
+  linkedin_url: string | null
+  tier: WatchlistTier
+  enabled: boolean
+  notes: string | null
+  last_polled_x: string | null
+  last_polled_li: string | null
+  last_post_id_x: string | null
+  last_post_id_li: string | null
+  created_at: string
+  updated_at: string
+}
+export type WatchlistStats = Record<WatchlistTier, {
+  total: number
+  enabled: number
+  mostRecentXPoll: string | null
+  mostRecentLiPoll: string | null
+}>
+export const getWatchlistHandles = () => json<WatchlistHandle[]>('/watchlist/handles')
+export const createWatchlistHandle = (data: Partial<WatchlistHandle>) =>
+  json<WatchlistHandle>('/watchlist/handles', { method: 'POST', body: JSON.stringify(data) })
+export const updateWatchlistHandle = (id: string, data: Partial<WatchlistHandle>) =>
+  json<WatchlistHandle>(`/watchlist/handles/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const deleteWatchlistHandle = (id: string) =>
+  json<{ ok: boolean; id: string }>(`/watchlist/handles/${id}`, { method: 'DELETE' })
+export const getWatchlistStats = () => json<WatchlistStats>('/watchlist/stats')
+
 // Triggers (managed in CP, written to Supabase via the openclaw bridge endpoint)
 export const getTriggers = () => json<Trigger[]>('/triggers')
 export const createTrigger = (data: { phrase: string, notes?: string }) =>

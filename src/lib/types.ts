@@ -298,6 +298,9 @@ export const OUTBOUND_PLATFORM_LABELS: Record<OutboundPlatform, string> = {
   reddit: 'Reddit',
 }
 
+export type OutboundTier = 'T1' | 'T2' | 'T3'
+export type OutboundPostKind = 'question' | 'opinion' | 'announcement' | 'launch' | 'personal' | 'other'
+
 export interface OutboundThread {
   id: string
   leadId: string
@@ -319,6 +322,12 @@ export interface OutboundThread {
   createdAt: string
   updatedAt: string
   sentAt: string | null
+  // Pipeline-stage signals (optional — null on older records before the
+  // watchlist/quality gate landed). Used by the Outbound filter bar.
+  qualityScore?: number | null
+  qualityGatePassed?: boolean | null
+  tier?: OutboundTier | null
+  postKind?: OutboundPostKind | string | null
 }
 
 export const OUTBOUND_ANGLE_LABELS: Record<OutboundAngle, string> = {

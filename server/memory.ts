@@ -555,6 +555,13 @@ export function upsertLeadFromSend(
   return { created, updated: !created, skipped: alreadyLogged, filepath: fp }
 }
 
+// Normalizes a reply text for dedup comparison: lowercase, collapse whitespace.
+// We don't store the normalized form — only use it to check whether we've
+// already logged this exact reply.
+function normalizeReplyText(s: string): string {
+  return s.replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
 export function recordLeadReply(
   handle: string,
   platform: Platform,
@@ -563,13 +570,26 @@ export function recordLeadReply(
   date: string = todayISO(),
 ): UpsertResult {
   const h = normalizeHandle(handle)
-  if (!h || !replyText.trim()) {
+  const trimmed = replyText.trim()
+  if (!h || !trimmed) {
     return { created: false, updated: false, skipped: true, reason: 'missing handle or text', filepath: '' }
   }
   const profile = getLeadProfile(h) ?? defaultProfile(h, platform)
   const created = !leadFileExists(h)
+  const fp = leadFilename(h)
 
-  profile.leadReplies.push({ date, text: replyText.trim() })
+  // Idempotency: if we've already logged this exact reply (same date + same
+  // normalized text), do nothing. Lets the reply observer run on a cron
+  // without producing duplicates.
+  const norm = normalizeReplyText(trimmed)
+  const already = profile.leadReplies.some(
+    (r) => r.date === date && normalizeReplyText(r.text) === norm,
+  )
+  if (already) {
+    return { created: false, updated: false, skipped: true, reason: 'duplicate reply', filepath: fp }
+  }
+
+  profile.leadReplies.push({ date, text: trimmed })
   profile.lastContact = date
   profile.sentiment = sentiment
   if (profile.status === 'warm' || profile.status === 'cold') profile.status = 'engaged'
@@ -582,7 +602,6 @@ export function recordLeadReply(
     }
   }
 
-  const fp = leadFilename(h)
   safeWrite(fp, serializeLeadFile(profile))
   return { created, updated: !created, skipped: false, filepath: fp }
 }

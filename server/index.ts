@@ -18,6 +18,13 @@ import {
   type AlgoliaIndex,
 } from './algolia.js'
 import { loadWatchlistFromVault, syncWatchlistToSupabase, fetchRecentIntel } from './viral-sync.js'
+import {
+  listHandles as listWatchlistHandles,
+  createHandle as createWatchlistHandle,
+  patchHandle as patchWatchlistHandle,
+  deleteHandle as deleteWatchlistHandle,
+  statsHandles as statsWatchlistHandles,
+} from './watchlist.js'
 
 // Load ~/.openclaw/.env so triggers proxy (and any future feature) sees Supabase creds.
 // We use `bash -lc` so $(security find-generic-password ...) substitutions evaluate.
@@ -1551,9 +1558,75 @@ app.get('/api/outbound/stats', async (_req, res) => {
 app.get('/api/outbound', (req, res) => {
   const status = typeof req.query.status === 'string' ? req.query.status : null
   const platform = typeof req.query.platform === 'string' ? req.query.platform : null
+
+  // New pipeline-signal filters (additive, all optional). Anything missing or
+  // empty is a no-op so existing callers keep their behavior unchanged.
+  const qualityMinRaw = typeof req.query.qualityMin === 'string' ? req.query.qualityMin : null
+  const qualityMin = qualityMinRaw != null && qualityMinRaw !== '' ? Number(qualityMinRaw) : null
+  const qualityGateRaw = typeof req.query.qualityGatePassed === 'string' ? req.query.qualityGatePassed : null
+  const tierRaw = typeof req.query.tier === 'string' ? req.query.tier : null
+  const postKindRaw = typeof req.query.postKind === 'string' ? req.query.postKind : null
+  const hasDmsRaw = typeof req.query.hasDms === 'string' ? req.query.hasDms : null
+  const qRaw = typeof req.query.q === 'string' ? req.query.q.trim().toLowerCase() : ''
+  const sortRaw = typeof req.query.sort === 'string' ? req.query.sort : 'newest'
+
+  const tierSet = tierRaw
+    ? new Set(tierRaw.split(',').map((s) => s.trim()).filter(Boolean))
+    : null
+  const postKindSet = postKindRaw
+    ? new Set(postKindRaw.split(',').map((s) => s.trim()).filter(Boolean))
+    : null
+
   let list = readOutbound()
   if (status) list = list.filter((t: any) => t.status === status)
   if (platform) list = list.filter((t: any) => (t.platform || 'x') === platform)
+
+  if (qualityMin != null && Number.isFinite(qualityMin) && qualityMin > 0) {
+    list = list.filter((t: any) => (typeof t.qualityScore === 'number' ? t.qualityScore : 0) >= qualityMin)
+  }
+  if (qualityGateRaw === 'true' || qualityGateRaw === 'false') {
+    const want = qualityGateRaw === 'true'
+    list = list.filter((t: any) => (t.qualityGatePassed === true) === want)
+  }
+  if (tierSet && tierSet.size > 0) {
+    list = list.filter((t: any) => {
+      const v = t.tier
+      if (v == null || v === '') return tierSet.has('none')
+      return tierSet.has(String(v))
+    })
+  }
+  if (postKindSet && postKindSet.size > 0) {
+    list = list.filter((t: any) => {
+      const v = t.postKind
+      if (v == null || v === '') return postKindSet.has('none')
+      return postKindSet.has(String(v))
+    })
+  }
+  if (hasDmsRaw === 'true' || hasDmsRaw === 'false') {
+    const want = hasDmsRaw === 'true'
+    list = list.filter((t: any) => t.allowsDms === want)
+  }
+  if (qRaw) {
+    list = list.filter((t: any) => {
+      const handle = String(t.authorHandle || '').toLowerCase()
+      const text = String(t.originalPostText || '').toLowerCase()
+      return handle.includes(qRaw) || text.includes(qRaw)
+    })
+  }
+
+  const tierRank: Record<string, number> = { T1: 0, T2: 1, T3: 2 }
+  const sortKey = (t: any): number => tierRank[String(t.tier || '')] ?? 3
+  if (sortRaw === 'oldest') {
+    list = [...list].sort((a: any, b: any) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')))
+  } else if (sortRaw === 'quality') {
+    list = [...list].sort((a: any, b: any) => (Number(b.qualityScore || 0)) - (Number(a.qualityScore || 0)))
+  } else if (sortRaw === 'tier') {
+    list = [...list].sort((a: any, b: any) => sortKey(a) - sortKey(b))
+  } else {
+    // 'newest' (default)
+    list = [...list].sort((a: any, b: any) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+  }
+
   res.json(list)
 })
 
@@ -2035,6 +2108,13 @@ app.post('/api/outbound', async (req, res) => {
     selectedDraftId: null,
     status: 'drafted',
     skipReason: null,
+    // Watchlist + quality gate metadata (optional, set by x-drafter when the
+    // lead came from watchlist-radar). UI surfaces tier badge + quality score;
+    // notifications.ts uses qualityGatePassed to suppress weak alerts.
+    qualityScore: typeof req.body.qualityScore === 'number' ? req.body.qualityScore : null,
+    qualityGatePassed: typeof req.body.qualityGatePassed === 'boolean' ? req.body.qualityGatePassed : null,
+    tier: ['T1','T2','T3'].includes(req.body.tier) ? req.body.tier : null,
+    postKind: typeof req.body.postKind === 'string' ? req.body.postKind : null,
     createdAt: now,
     updatedAt: now,
     sentAt: null,
@@ -2146,6 +2226,13 @@ app.get('/api/triggers', async (_req, res) => {
     res.json(arr.map(mapTrigger))
   } catch (e) { res.status(500).json({ error: (e as Error).message }) }
 })
+
+// Watchlist handles — tiered list of accounts the radar polls.
+app.get('/api/watchlist/handles', listWatchlistHandles)
+app.post('/api/watchlist/handles', createWatchlistHandle)
+app.patch('/api/watchlist/handles/:id', patchWatchlistHandle)
+app.delete('/api/watchlist/handles/:id', deleteWatchlistHandle)
+app.get('/api/watchlist/stats', statsWatchlistHandles)
 
 app.post('/api/triggers', async (req, res) => {
   try {
