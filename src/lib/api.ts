@@ -223,10 +223,33 @@ export const deleteSentDm = (id: string) =>
   json<void>(`/sent-dms/${id}`, { method: 'DELETE' })
 
 // Outbound (openclaw X pipeline)
-export const getOutbound = (status?: OutboundStatus, platform?: string) => {
+export type OutboundSort = 'newest' | 'oldest' | 'quality' | 'tier'
+export interface OutboundFilters {
+  qualityMin?: number
+  qualityGatePassed?: boolean
+  tier?: string[]      // CSV-encoded; 'none' matches null/undefined
+  postKind?: string[]  // CSV-encoded; 'none' matches null/undefined
+  hasDms?: boolean
+  q?: string
+  sort?: OutboundSort
+}
+export const getOutbound = (
+  status?: OutboundStatus,
+  platform?: string,
+  filters?: OutboundFilters,
+) => {
   const qs = new URLSearchParams()
   if (status) qs.set('status', status)
   if (platform) qs.set('platform', platform)
+  if (filters) {
+    if (typeof filters.qualityMin === 'number' && filters.qualityMin > 0) qs.set('qualityMin', String(filters.qualityMin))
+    if (typeof filters.qualityGatePassed === 'boolean') qs.set('qualityGatePassed', filters.qualityGatePassed ? 'true' : 'false')
+    if (filters.tier && filters.tier.length > 0) qs.set('tier', filters.tier.join(','))
+    if (filters.postKind && filters.postKind.length > 0) qs.set('postKind', filters.postKind.join(','))
+    if (typeof filters.hasDms === 'boolean') qs.set('hasDms', filters.hasDms ? 'true' : 'false')
+    if (filters.q && filters.q.trim()) qs.set('q', filters.q.trim())
+    if (filters.sort && filters.sort !== 'newest') qs.set('sort', filters.sort)
+  }
   const q = qs.toString()
   return json<OutboundThread[]>(`/outbound${q ? `?${q}` : ''}`)
 }

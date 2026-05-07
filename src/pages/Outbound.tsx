@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   getOutbound,
@@ -13,6 +13,8 @@ import {
   closeCurrentBatch,
   getOutboundStats,
   type BatchInfo,
+  type OutboundFilters,
+  type OutboundSort,
 } from '../lib/api'
 import {
   type OutboundAngle,
@@ -48,6 +50,98 @@ const PLATFORM_TABS: Array<{ value: OutboundPlatform; label: string }> = [
 ]
 
 const REPLY_LIMIT = 280
+
+const TIER_OPTIONS = ['T1', 'T2', 'T3', 'none'] as const
+const POST_KIND_OPTIONS = ['question', 'opinion', 'announcement', 'launch', 'personal', 'other', 'none'] as const
+const SORT_OPTIONS: Array<{ value: OutboundSort, label: string }> = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'quality', label: 'Quality (high → low)' },
+  { value: 'tier', label: 'Tier (T1 → T3)' },
+]
+
+type DmsFilter = 'any' | 'open' | 'closed'
+
+interface FilterState {
+  qualityMin: number
+  qualityGatePassed: boolean
+  tier: string[]
+  postKind: string[]
+  hasDms: DmsFilter
+  q: string
+  sort: OutboundSort
+}
+
+const EMPTY_FILTERS: FilterState = {
+  qualityMin: 0,
+  qualityGatePassed: false,
+  tier: [],
+  postKind: [],
+  hasDms: 'any',
+  q: '',
+  sort: 'newest',
+}
+
+function parseFiltersFromURL(): FilterState {
+  if (typeof window === 'undefined') return { ...EMPTY_FILTERS }
+  const sp = new URLSearchParams(window.location.search)
+  const sortRaw = sp.get('sort') || 'newest'
+  const sort: OutboundSort = (['newest', 'oldest', 'quality', 'tier'] as const).includes(sortRaw as OutboundSort)
+    ? (sortRaw as OutboundSort)
+    : 'newest'
+  const dmsRaw = sp.get('hasDms')
+  const hasDms: DmsFilter = dmsRaw === 'true' ? 'open' : dmsRaw === 'false' ? 'closed' : 'any'
+  return {
+    qualityMin: Math.max(0, Math.min(100, Number(sp.get('qualityMin') || 0) || 0)),
+    qualityGatePassed: sp.get('qualityGatePassed') === 'true',
+    tier: (sp.get('tier') || '').split(',').map((s) => s.trim()).filter((s) => (TIER_OPTIONS as readonly string[]).includes(s)),
+    postKind: (sp.get('postKind') || '').split(',').map((s) => s.trim()).filter((s) => (POST_KIND_OPTIONS as readonly string[]).includes(s)),
+    hasDms,
+    q: sp.get('q') || '',
+    sort,
+  }
+}
+
+function writeFiltersToURL(f: FilterState) {
+  if (typeof window === 'undefined') return
+  const sp = new URLSearchParams(window.location.search)
+  // Strip our keys, then re-set the active ones so we don't litter the URL.
+  for (const key of ['qualityMin', 'qualityGatePassed', 'tier', 'postKind', 'hasDms', 'q', 'sort']) sp.delete(key)
+  if (f.qualityMin > 0) sp.set('qualityMin', String(f.qualityMin))
+  if (f.qualityGatePassed) sp.set('qualityGatePassed', 'true')
+  if (f.tier.length > 0) sp.set('tier', f.tier.join(','))
+  if (f.postKind.length > 0) sp.set('postKind', f.postKind.join(','))
+  if (f.hasDms !== 'any') sp.set('hasDms', f.hasDms === 'open' ? 'true' : 'false')
+  if (f.q) sp.set('q', f.q)
+  if (f.sort !== 'newest') sp.set('sort', f.sort)
+  const next = `${window.location.pathname}${sp.toString() ? `?${sp.toString()}` : ''}${window.location.hash}`
+  window.history.replaceState(null, '', next)
+}
+
+function activeFilterCount(f: FilterState): number {
+  let n = 0
+  if (f.qualityMin > 0) n++
+  if (f.qualityGatePassed) n++
+  if (f.tier.length > 0) n++
+  if (f.postKind.length > 0) n++
+  if (f.hasDms !== 'any') n++
+  if (f.q.trim()) n++
+  if (f.sort !== 'newest') n++
+  return n
+}
+
+function filtersToApi(f: FilterState): OutboundFilters {
+  const out: OutboundFilters = {}
+  if (f.qualityMin > 0) out.qualityMin = f.qualityMin
+  if (f.qualityGatePassed) out.qualityGatePassed = true
+  if (f.tier.length > 0) out.tier = f.tier
+  if (f.postKind.length > 0) out.postKind = f.postKind
+  if (f.hasDms === 'open') out.hasDms = true
+  else if (f.hasDms === 'closed') out.hasDms = false
+  if (f.q.trim()) out.q = f.q.trim()
+  if (f.sort !== 'newest') out.sort = f.sort
+  return out
+}
 
 function relativeTime(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime()
@@ -98,9 +192,50 @@ export function Outbound() {
   const [edits, setEdits] = useState<Record<string, Record<string, string>>>({})
   const [selectedAngles, setSelectedAngles] = useState<Record<string, { reply: OutboundAngle, dm: OutboundAngle, repost: OutboundAngle }>>({})
 
+  const [filters, setFilters] = useState<FilterState>(() => parseFiltersFromURL())
+  const [filtersOpen, setFiltersOpen] = useState<boolean>(() => activeFilterCount(parseFiltersFromURL()) > 0)
+  // The search input is debounced so we don't spam /api/outbound on every keystroke.
+  const [searchInput, setSearchInput] = useState<string>(() => parseFiltersFromURL().q)
+  const searchDebounce = useRef<number | null>(null)
+
+  // Persist filters to the URL on every change so reloads + deep-links survive.
+  useEffect(() => { writeFiltersToURL(filters) }, [filters])
+
   // Only fetch drafted threads; everything else shows up on the Sent page.
-  const load = async () => setThreads(await getOutbound('drafted'))
-  useEffect(() => { load(); const id = setInterval(load, 8000); return () => clearInterval(id) }, [])
+  // Filters are server-side now so the polling loop picks up changes too.
+  const load = async () => setThreads(await getOutbound('drafted', undefined, filtersToApi(filters)))
+  useEffect(() => {
+    load()
+    const id = setInterval(load, 8000)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters])
+
+  // Debounce search input → filter state.
+  useEffect(() => {
+    if (searchDebounce.current != null) window.clearTimeout(searchDebounce.current)
+    searchDebounce.current = window.setTimeout(() => {
+      setFilters((prev) => prev.q === searchInput ? prev : { ...prev, q: searchInput })
+    }, 250)
+    return () => { if (searchDebounce.current != null) window.clearTimeout(searchDebounce.current) }
+  }, [searchInput])
+
+  const toggleArrayValue = (key: 'tier' | 'postKind', value: string) =>
+    setFilters((prev) => {
+      const arr = prev[key]
+      const next = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
+      return { ...prev, [key]: next }
+    })
+
+  const clearGroup = (key: keyof FilterState) =>
+    setFilters((prev) => ({ ...prev, [key]: (EMPTY_FILTERS as any)[key] }))
+
+  const resetFilters = () => {
+    setSearchInput('')
+    setFilters({ ...EMPTY_FILTERS })
+  }
+
+  const filterCount = activeFilterCount(filters)
 
   const platformThreads = useMemo(
     () => threads.filter((t) => (t.platform || 'x') === platform),
@@ -215,6 +350,19 @@ export function Outbound() {
           </button>
         ))}
       </div>
+
+      <FilterBar
+        filters={filters}
+        setFilters={setFilters}
+        searchInput={searchInput}
+        setSearchInput={setSearchInput}
+        open={filtersOpen}
+        setOpen={setFiltersOpen}
+        count={filterCount}
+        onToggleArray={toggleArrayValue}
+        onClearGroup={clearGroup}
+        onReset={resetFilters}
+      />
 
       <div className="glass glass-border rounded-xl p-4 flex items-center gap-2 flex-wrap">
         <span className="text-[10px] uppercase tracking-wider text-white/35 mr-1">Batch</span>
@@ -430,11 +578,25 @@ function ThreadHeader({ thread }: { thread: OutboundThread }) {
     skipped: { color: '#64748b' },
   }
   const { color } = map[thread.status]
+  const tierColor = thread.tier === 'T1' ? '#34d399' : thread.tier === 'T2' ? '#60a5fa' : thread.tier === 'T3' ? '#a78bfa' : null
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color, backgroundColor: color + '22', border: `1px solid ${color}33` }}>{thread.status.replace('_', ' ')}</span>
       {typeof thread.batchNumber === 'number' && (
         <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded text-white/70 bg-white/[0.06] border border-white/15">batch #{thread.batchNumber}</span>
+      )}
+      {thread.tier && tierColor && (
+        <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: tierColor, backgroundColor: tierColor + '22', border: `1px solid ${tierColor}55` }}>{thread.tier}</span>
+      )}
+      {typeof thread.qualityScore === 'number' && (
+        <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+          thread.qualityGatePassed
+            ? 'text-emerald-300 bg-emerald-400/15 border-emerald-400/40'
+            : 'text-white/60 bg-white/[0.06] border-white/15'
+        }`}>q {thread.qualityScore}</span>
+      )}
+      {thread.postKind && (
+        <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded text-white/55 bg-white/[0.04] border border-white/[0.08]">{thread.postKind}</span>
       )}
       <span className="text-[12px] text-white/55">openclaw lead</span>
       <span className="text-[11px] text-white/30">created {relativeTime(thread.createdAt)}</span>
@@ -446,6 +608,158 @@ function FilterPill({ active, onClick, label }: { active: boolean, onClick: () =
   const base = 'text-[12px] font-medium px-2.5 py-1 rounded-md transition-colors cursor-pointer border'
   if (active) return <button onClick={onClick} className={`${base} text-white bg-white/[0.12] border-white/30`}>{label}</button>
   return <button onClick={onClick} className={`${base} text-white/45 bg-white/[0.02] border-white/[0.06] hover:text-white/80 hover:bg-white/[0.05]`}>{label}</button>
+}
+
+// ---------- Filter bar (pipeline-stage signals) ----------
+
+function FilterBar({
+  filters, setFilters, searchInput, setSearchInput,
+  open, setOpen, count,
+  onToggleArray, onClearGroup, onReset,
+}: {
+  filters: FilterState
+  setFilters: React.Dispatch<React.SetStateAction<FilterState>>
+  searchInput: string
+  setSearchInput: (v: string) => void
+  open: boolean
+  setOpen: (v: boolean) => void
+  count: number
+  onToggleArray: (key: 'tier' | 'postKind', value: string) => void
+  onClearGroup: (key: keyof FilterState) => void
+  onReset: () => void
+}) {
+  return (
+    <div className="glass glass-border rounded-xl">
+      <div className="flex items-center gap-2 p-3 flex-wrap">
+        <button
+          onClick={() => setOpen(!open)}
+          className="text-[12px] font-medium px-2.5 py-1 rounded-md border border-white/15 bg-white/[0.04] text-white/80 hover:bg-white/[0.08] transition-colors cursor-pointer flex items-center gap-1.5"
+        >
+          <span>{open ? '▼' : '▶'}</span> Filters
+          {count > 0 && (
+            <span className="text-[10px] tabular-nums px-1.5 py-0.5 rounded bg-emerald-400/20 text-emerald-300 border border-emerald-400/30">{count}</span>
+          )}
+        </button>
+
+        {/* Sort lives in the always-visible row so Pablo can re-sort fast. */}
+        <select
+          value={filters.sort}
+          onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value as OutboundSort }))}
+          className="text-[12px] px-2 py-1 rounded-md border border-white/[0.08] bg-white/[0.03] text-white/75 cursor-pointer outline-none hover:bg-white/[0.06] transition-colors"
+        >
+          {SORT_OPTIONS.map((s) => (
+            <option key={s.value} value={s.value} className="bg-[#0a0a0a] text-white">{s.label}</option>
+          ))}
+        </select>
+
+        <input
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="search handle or post text"
+          className="text-[12px] px-2.5 py-1 rounded-md border border-white/[0.08] bg-white/[0.03] text-white/85 placeholder:text-white/30 outline-none focus:border-white/25 transition-colors min-w-[220px] flex-1 max-w-[320px]"
+        />
+
+        {count > 0 && (
+          <button
+            onClick={onReset}
+            className="text-[11px] font-medium px-2 py-1 rounded-md text-white/50 hover:text-white/85 hover:bg-white/[0.05] transition-colors cursor-pointer ml-auto"
+          >
+            × Reset all
+          </button>
+        )}
+      </div>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.18 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-1 space-y-3 border-t border-white/[0.05]">
+              {/* Quality slider + gate toggle */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-[10px] uppercase tracking-wider text-white/35 w-20">Quality</span>
+                <input
+                  type="range"
+                  min={0} max={100} step={5}
+                  value={filters.qualityMin}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, qualityMin: Number(e.target.value) }))}
+                  className="flex-1 max-w-[260px] accent-emerald-400 cursor-pointer"
+                />
+                <span className="text-[12px] tabular-nums text-white/70 w-24">
+                  Min: <span className="font-mono">{filters.qualityMin}</span>
+                </span>
+                <button
+                  onClick={() => setFilters((prev) => ({ ...prev, qualityGatePassed: !prev.qualityGatePassed }))}
+                  className={`text-[12px] font-medium px-2.5 py-1 rounded-md border transition-colors cursor-pointer ${
+                    filters.qualityGatePassed
+                      ? 'text-emerald-300 bg-emerald-400/15 border-emerald-400/40'
+                      : 'text-white/45 bg-white/[0.02] border-white/[0.06] hover:text-white/80'
+                  }`}
+                >
+                  Passed gate {filters.qualityGatePassed && <span className="ml-1">✓</span>}
+                </button>
+              </div>
+
+              {/* Tier chips */}
+              <ChipGroup
+                label="Tier"
+                options={TIER_OPTIONS as readonly string[]}
+                values={filters.tier}
+                onToggle={(v) => onToggleArray('tier', v)}
+                onClear={filters.tier.length > 0 ? () => onClearGroup('tier') : undefined}
+              />
+
+              {/* Post-kind chips */}
+              <ChipGroup
+                label="Post kind"
+                options={POST_KIND_OPTIONS as readonly string[]}
+                values={filters.postKind}
+                onToggle={(v) => onToggleArray('postKind', v)}
+                onClear={filters.postKind.length > 0 ? () => onClearGroup('postKind') : undefined}
+              />
+
+              {/* DMs 3-state */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] uppercase tracking-wider text-white/35 w-20">DMs</span>
+                {(['any', 'open', 'closed'] as const).map((v) => (
+                  <FilterPill
+                    key={v}
+                    label={v[0].toUpperCase() + v.slice(1)}
+                    active={filters.hasDms === v}
+                    onClick={() => setFilters((prev) => ({ ...prev, hasDms: v }))}
+                  />
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function ChipGroup({ label, options, values, onToggle, onClear }: {
+  label: string
+  options: readonly string[]
+  values: string[]
+  onToggle: (v: string) => void
+  onClear?: () => void
+}) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-[10px] uppercase tracking-wider text-white/35 w-20">{label}</span>
+      {options.map((o) => (
+        <FilterPill key={o} label={o} active={values.includes(o)} onClick={() => onToggle(o)} />
+      ))}
+      {onClear && (
+        <button onClick={onClear} className="text-[11px] text-white/40 hover:text-white/85 underline underline-offset-2 cursor-pointer ml-1">× clear</button>
+      )}
+    </div>
+  )
 }
 
 // ---------- Batch section ----------
