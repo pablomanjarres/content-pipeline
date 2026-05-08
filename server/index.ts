@@ -30,6 +30,7 @@ import {
   controlPool as controlOpenclawPool,
   controlService as controlOpenclawService,
 } from './openclaw-admin.js'
+import { registerPaperclipRoutes } from './paperclip.js'
 
 // Load ~/.openclaw/.env so triggers proxy (and any future feature) sees Supabase creds.
 // We use `bash -lc` so $(security find-generic-password ...) substitutions evaluate.
@@ -2692,6 +2693,9 @@ app.get('/api/viral/intelligence', async (req, res) => {
 app.get('/api/openclaw/admin/status', getOpenclawAdminStatus)
 app.post('/api/openclaw/admin/pool/:name/:action', controlOpenclawPool)
 app.post('/api/openclaw/admin/service/:name/:action', controlOpenclawService)
+
+// Paperclip — Weekly Content Batch trigger (fires the routine on openclaw-vm)
+registerPaperclipRoutes(app)
 
 // Serve PWA assets (icons, manifest, favicon) in all environments
 const publicPath = path.join(APP_ROOT, 'public')
