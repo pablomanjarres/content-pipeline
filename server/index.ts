@@ -25,6 +25,11 @@ import {
   deleteHandle as deleteWatchlistHandle,
   statsHandles as statsWatchlistHandles,
 } from './watchlist.js'
+import {
+  getStatus as getOpenclawAdminStatus,
+  controlPool as controlOpenclawPool,
+  controlService as controlOpenclawService,
+} from './openclaw-admin.js'
 
 // Load ~/.openclaw/.env so triggers proxy (and any future feature) sees Supabase creds.
 // We use `bash -lc` so $(security find-generic-password ...) substitutions evaluate.
@@ -1570,6 +1575,31 @@ app.get('/api/outbound', (req, res) => {
   const qRaw = typeof req.query.q === 'string' ? req.query.q.trim().toLowerCase() : ''
   const sortRaw = typeof req.query.sort === 'string' ? req.query.sort : 'newest'
 
+  // Date filters: 'recent' presets (3d / 7d / 15d / 30d) or explicit ISO range.
+  // Filter is applied to lead's posted_at (when the original post went live),
+  // not to draft.createdAt — Pablo's policy: only reply to recent posts, never
+  // to 100-day-old ones. Default to a 15-day soft window when no filter sent.
+  const postedAfterRaw = typeof req.query.postedAfter === 'string' ? req.query.postedAfter : null
+  const postedBeforeRaw = typeof req.query.postedBefore === 'string' ? req.query.postedBefore : null
+  const recentPresetRaw = typeof req.query.recent === 'string' ? req.query.recent : null
+  let postedAfter: Date | null = null
+  let postedBefore: Date | null = null
+  if (recentPresetRaw) {
+    const m = /^(\d+)d$/i.exec(recentPresetRaw)
+    if (m) {
+      const days = Math.max(1, Math.min(365, parseInt(m[1], 10)))
+      postedAfter = new Date(Date.now() - days * 86_400_000)
+    }
+  }
+  if (postedAfterRaw) {
+    const d = new Date(postedAfterRaw)
+    if (!isNaN(d.getTime())) postedAfter = d
+  }
+  if (postedBeforeRaw) {
+    const d = new Date(postedBeforeRaw)
+    if (!isNaN(d.getTime())) postedBefore = d
+  }
+
   const tierSet = tierRaw
     ? new Set(tierRaw.split(',').map((s) => s.trim()).filter(Boolean))
     : null
@@ -1611,6 +1641,18 @@ app.get('/api/outbound', (req, res) => {
       const handle = String(t.authorHandle || '').toLowerCase()
       const text = String(t.originalPostText || '').toLowerCase()
       return handle.includes(qRaw) || text.includes(qRaw)
+    })
+  }
+
+  if (postedAfter || postedBefore) {
+    list = list.filter((t: any) => {
+      const raw = t.postedAt || t.posted_at
+      if (!raw) return false   // unknown date — exclude when a date filter is active
+      const d = new Date(raw)
+      if (isNaN(d.getTime())) return false
+      if (postedAfter && d < postedAfter) return false
+      if (postedBefore && d > postedBefore) return false
+      return true
     })
   }
 
@@ -1951,7 +1993,7 @@ app.get('/api/memory/lead/:handle', (req, res) => {
   }
 })
 
-app.get('/api/memory/context', (req, res) => {
+app.get('/api/memory/context', async (req, res) => {
   try {
     const handle = String(req.query.handle || '')
     const platform = String(req.query.platform || 'x')
@@ -1962,7 +2004,7 @@ app.get('/api/memory/context', (req, res) => {
     if (!['x', 'reddit', 'hn', 'linkedin'].includes(platform)) {
       return res.status(400).json({ error: `unknown platform ${platform}` })
     }
-    const ctx = memory.getMemoryContext({
+    const ctx = await memory.getMemoryContext({
       handle,
       platform: platform as memory.Platform,
       originalPostText,
@@ -2645,6 +2687,11 @@ app.get('/api/viral/intelligence', async (req, res) => {
     res.status(500).json({ error: (e as Error).message })
   }
 })
+
+// --- OpenClaw VM admin (proxy to admin-control service on the VM) ---
+app.get('/api/openclaw/admin/status', getOpenclawAdminStatus)
+app.post('/api/openclaw/admin/pool/:name/:action', controlOpenclawPool)
+app.post('/api/openclaw/admin/service/:name/:action', controlOpenclawService)
 
 // Serve PWA assets (icons, manifest, favicon) in all environments
 const publicPath = path.join(APP_ROOT, 'public')

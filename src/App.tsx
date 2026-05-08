@@ -12,11 +12,12 @@ import { Outbound } from './pages/Outbound'
 import { Sent } from './pages/Sent'
 import { Shorts } from './pages/Shorts'
 import { Watchlist } from './pages/Watchlist'
+import { Ops } from './pages/Ops'
 import { RagButton } from './components/RagButton'
 import { SearchButton } from './components/SearchButton'
 import { useIsMobile } from './lib/useIsMobile'
 
-type Page = 'dashboard' | 'videos' | 'posts' | 'strategy' | 'templates' | 'ideas' | 'outbound' | 'sent' | 'shorts' | 'watchlist' | 'video-detail' | 'post-detail'
+type Page = 'dashboard' | 'videos' | 'posts' | 'strategy' | 'templates' | 'ideas' | 'outbound' | 'sent' | 'shorts' | 'watchlist' | 'ops' | 'video-detail' | 'post-detail'
 
 // Outbound = openclaw-generated drafts pending review.
 // Sent = the audit trail of replies/DMs already sent (includes partial + manual sent-dms).
@@ -31,6 +32,7 @@ const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
   { key: 'outbound', label: 'Outbound', icon: 'reply' },
   { key: 'watchlist', label: 'Watchlist', icon: 'eye' },
   { key: 'sent', label: 'Sent', icon: 'check' },
+  { key: 'ops', label: 'Ops', icon: 'power' },
 ]
 
 function NavIcon({ icon, size = 20 }: { icon: string; size?: number }) {
@@ -47,6 +49,7 @@ function NavIcon({ icon, size = 20 }: { icon: string; size?: number }) {
     case 'check': return <svg {...props}><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
     case 'spark': return <svg {...props}><path d="M12 2v6"/><path d="M12 16v6"/><path d="M2 12h6"/><path d="M16 12h6"/><path d="M5 5l3 3"/><path d="M16 16l3 3"/><path d="M5 19l3-3"/><path d="M16 8l3-3"/></svg>
     case 'eye': return <svg {...props}><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+    case 'power': return <svg {...props}><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>
     default: return null
   }
 }
@@ -55,7 +58,7 @@ function parseHash(): { page: Page; itemId: string | null } {
   const hash = window.location.hash.slice(1) || 'dashboard'
   if (hash.startsWith('video/')) return { page: 'video-detail', itemId: hash.slice(6) }
   if (hash.startsWith('post/')) return { page: 'post-detail', itemId: hash.slice(5) }
-  if (['dashboard', 'videos', 'posts', 'strategy', 'templates', 'ideas', 'outbound', 'sent', 'shorts', 'watchlist'].includes(hash)) return { page: hash as Page, itemId: null }
+  if (['dashboard', 'videos', 'posts', 'strategy', 'templates', 'ideas', 'outbound', 'sent', 'shorts', 'watchlist', 'ops'].includes(hash)) return { page: hash as Page, itemId: null }
   return { page: 'dashboard', itemId: null }
 }
 
@@ -217,6 +220,7 @@ export default function App() {
             {page === 'sent' && <Sent />}
             {page === 'shorts' && <Shorts onOpenVideo={openVideo} />}
             {page === 'watchlist' && <Watchlist />}
+            {page === 'ops' && <Ops />}
             {page === 'video-detail' && selectedItemId && (
               <VideoDetail id={selectedItemId} onBack={() => setPage('dashboard')} />
             )}
