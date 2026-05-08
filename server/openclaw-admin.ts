@@ -2,12 +2,12 @@
 // start/stop/restart the worker pools (classifier, drafter) and support
 // services (gateway, cortex-relay) running on openclaw-vm.
 //
-// VM service lives at $OPENCLAW_ADMIN_URL (default http://100.67.197.55:3458)
+// VM service lives at $OPENCLAW_ADMIN_URL (default http://100.67.197.55:3459)
 // and requires $OPENCLAW_ADMIN_TOKEN matching ADMIN_CONTROL_TOKEN on the VM.
 
 import type { Request, Response } from 'express'
 
-const DEFAULT_VM_URL = 'http://100.67.197.55:3458'
+const DEFAULT_VM_URL = 'http://100.67.197.55:3459'
 
 function vmConfig() {
   const url = (process.env.OPENCLAW_ADMIN_URL || DEFAULT_VM_URL).replace(/\/$/, '')
