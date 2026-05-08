@@ -4,6 +4,7 @@ import { getStats, getTemplates } from '../lib/api'
 import { CATEGORY_COLORS, PLATFORM_LABELS, type OutreachTemplate } from '../lib/types'
 import { DailyMedia } from '../components/DailyMedia'
 import { LatestPostGroupCard } from '../components/LatestPostGroupCard'
+import { PaperclipBatchButton } from '../components/PaperclipBatchButton'
 
 interface Props {
   onOpenVideo: (id: string) => void
@@ -53,6 +54,10 @@ export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
   return (
     <div className="space-y-6 md:space-y-8">
       <motion.div {...fade(0)}>
+        <PaperclipBatchButton />
+      </motion.div>
+
+      <motion.div {...fade(0.1)}>
         <LatestPostGroupCard onOpenPost={onOpenPost} onOpenVideo={onOpenVideo} />
       </motion.div>
 
