@@ -554,6 +554,10 @@ app.post('/api/posts', (req, res) => {
     mediaKind: req.body.mediaKind || null,
     mediaStatus: req.body.mediaStatus || 'none',
     generatorRunId: req.body.generatorRunId || null,
+    scheduledAt: req.body.scheduledAt || null,
+    publishTo: req.body.publishTo || null,
+    postizId: req.body.postizId || null,
+    postizError: req.body.postizError || null,
   }
   upsert('posts', post)
   syncPostProjectFile(post)
@@ -562,12 +566,25 @@ app.post('/api/posts', (req, res) => {
 })
 
 app.put('/api/posts/:id', (req, res) => {
-  const existing = findById('posts', req.params.id)
+  const existing = findById<any>('posts', req.params.id)
   if (!existing) return res.status(404).json({ error: 'Not found' })
   const updated = { ...existing, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() }
   upsert('posts', updated)
   syncPostProjectFile(updated)
   obsidian.syncPost(updated)
+  // Capture voice edit if content actually changed
+  if (typeof req.body.content === 'string' && req.body.content !== existing.content) {
+    obsidian.appendVoiceEdit({
+      recordType: 'post',
+      recordId: updated.id,
+      recordTitle: updated.title || 'Untitled',
+      platform: updated.platform,
+      field: 'content',
+      before: existing.content || '',
+      after: updated.content || '',
+      reason: typeof req.body.editReason === 'string' ? req.body.editReason : undefined,
+    })
+  }
   res.json(updated)
 })
 

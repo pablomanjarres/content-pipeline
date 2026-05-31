@@ -82,6 +82,8 @@ export type PostPlatform = 'linkedin' | 'x' | 'reddit'
 export type MediaStatus = 'none' | 'rendering' | 'ready' | 'failed'
 export type MediaKind = 'video' | 'image'
 
+export type PublishTarget = 'postiz'
+
 export interface Post {
   id: string
   title: string
@@ -102,6 +104,15 @@ export interface Post {
   mediaKind: MediaKind | null
   mediaStatus: MediaStatus
   generatorRunId: string | null
+  // ── postiz routing ──
+  // When status==='scheduled' and publishTo==='postiz', the postiz-bridge
+  // systemd timer on openclaw-vm picks up the post and schedules it via the
+  // postiz CLI. scheduledAt is the requested publish time (ISO8601). After
+  // the bridge runs, postizId is set on success, postizError on failure.
+  scheduledAt: string | null
+  publishTo: PublishTarget | null
+  postizId: string | null
+  postizError: string | null
 }
 
 export type VoicePostDraftKind = 'x' | 'linkedin' | 'reflection' | 'shortVideo'
