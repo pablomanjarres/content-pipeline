@@ -15,7 +15,7 @@ UPLOAD_SCRIPT='for f in "$@"; do
         YEAR=$(date +%G)
         WEEK=$(date +%V)
         WEEK_KEY="${YEAR}-W${WEEK}"
-        curl -s -X POST "http://localhost:3001/api/media/upload/${WEEK_KEY}/${DATE}" \
+        curl -s -X POST "http://localhost:3010/api/media/upload/${WEEK_KEY}/${DATE}" \
             -F "files=@${f}"
     fi
 done

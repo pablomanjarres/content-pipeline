@@ -54,7 +54,9 @@ try {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const upload = multer({ dest: path.join(os.tmpdir(), 'content-pipeline-uploads') })
-const PORT = parseInt(process.env.PORT || '3001', 10)
+// Moved off 3001 (2026-05-19) to avoid conflict with Noelle's Next.js dev server.
+// Override with PORT env var if you need a different port for any reason.
+const PORT = parseInt(process.env.PORT || '3010', 10)
 const PROJECT_ROOT = process.env.CONTENT_PIPELINE_ROOT || path.join(__dirname, '..')
 const APP_ROOT = process.env.CONTENT_PIPELINE_APP_ROOT || path.join(__dirname, '..')
 const DATA_ROOT = path.join(PROJECT_ROOT, 'data')

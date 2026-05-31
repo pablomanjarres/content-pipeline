@@ -33,7 +33,8 @@ let autoReloadOnFileChanges = false
 let autoReloadWatchers: fs.FSWatcher[] = []
 let autoReloadTimer: NodeJS.Timeout | null = null
 
-const SERVER_PORT = parseInt(process.env.CONTENT_PIPELINE_PORT || '3001', 10)
+// Moved off 3001 (2026-05-19) to avoid conflict with Noelle's Next.js dev server.
+const SERVER_PORT = parseInt(process.env.CONTENT_PIPELINE_PORT || '3010', 10)
 const DEV_URL = `http://localhost:${process.env.VITE_PORT || '5173'}`
 const DATA_FILES = [
   'videos',
