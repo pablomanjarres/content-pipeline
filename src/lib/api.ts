@@ -1,4 +1,4 @@
-import type { Video, Clip, Idea, Post, Status, PostStatus, Repo, Generation, ReplyRequest, TonePreset, CommitEntry, OutreachTemplate, GeneratorRun, MediaStatus, MediaKind, SentDm, OutboundThread, OutboundStatus, Trigger } from './types'
+import type { Video, Clip, Idea, Post, Status, PostStatus, Repo, Generation, ReplyRequest, TonePreset, CommitEntry, OutreachTemplate, GeneratorRun, MediaStatus, MediaKind, SentDm, OutboundThread, OutboundStatus, Trigger, TimelineEntry, TimelineAttachment } from './types'
 
 const BASE = '/api'
 
@@ -362,6 +362,27 @@ export const updateWatchlistHandle = (id: string, data: Partial<WatchlistHandle>
 export const deleteWatchlistHandle = (id: string) =>
   json<{ ok: boolean; id: string }>(`/watchlist/handles/${id}`, { method: 'DELETE' })
 export const getWatchlistStats = () => json<WatchlistStats>('/watchlist/stats')
+
+// Timeline (weekly build planner). Date is YYYY-MM-DD and is the primary key.
+// File uploads use FormData against the existing multer-backed /attach endpoint;
+// everything else goes through the typed json<T>() wrapper.
+export const getTimeline = () => json<TimelineEntry[]>('/timeline')
+export const getTimelineRange = (start: string, end: string) =>
+  json<TimelineEntry[]>(`/timeline/range?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`)
+export const getTimelineEntry = (date: string) => json<TimelineEntry>(`/timeline/${encodeURIComponent(date)}`)
+export const updateTimelineEntry = (date: string, data: Partial<TimelineEntry>) =>
+  json<TimelineEntry>(`/timeline/${encodeURIComponent(date)}`, { method: 'PUT', body: JSON.stringify(data) })
+export const deleteTimelineEntry = (date: string) =>
+  json<{ ok: boolean }>(`/timeline/${encodeURIComponent(date)}`, { method: 'DELETE' })
+export const deleteTimelineAttachment = (date: string, attachId: string) =>
+  json<{ ok: boolean }>(`/timeline/${encodeURIComponent(date)}/attach/${encodeURIComponent(attachId)}`, { method: 'DELETE' })
+export async function uploadTimelineAttachment(date: string, file: File): Promise<TimelineAttachment> {
+  const fd = new FormData()
+  fd.append('file', file)
+  const res = await fetch(`${BASE}/timeline/${encodeURIComponent(date)}/attach`, { method: 'POST', body: fd })
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
+  return res.json()
+}
 
 // Triggers (managed in CP, written to Supabase via the openclaw bridge endpoint)
 export const getTriggers = () => json<Trigger[]>('/triggers')

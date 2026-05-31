@@ -5,6 +5,7 @@ import { CATEGORY_COLORS, PLATFORM_LABELS, type OutreachTemplate } from '../lib/
 import { DailyMedia } from '../components/DailyMedia'
 import { LatestPostGroupCard } from '../components/LatestPostGroupCard'
 import { PaperclipBatchButton } from '../components/PaperclipBatchButton'
+import { TimelineStrip } from '../components/TimelineStrip'
 
 interface Props {
   onOpenVideo: (id: string) => void
@@ -59,6 +60,10 @@ export function Dashboard({ onOpenVideo, onOpenPost, onNavigate }: Props) {
 
       <motion.div {...fade(0.1)}>
         <LatestPostGroupCard onOpenPost={onOpenPost} onOpenVideo={onOpenVideo} />
+      </motion.div>
+
+      <motion.div {...fade(0.15)}>
+        <TimelineStrip onOpenPost={onOpenPost} />
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

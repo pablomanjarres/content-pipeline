@@ -932,6 +932,212 @@ app.put('/api/weekly/:weekKey', (req, res) => {
   res.json(raw[req.params.weekKey])
 })
 
+// --- Timeline (weekly planning + post-mortem + attachments) ---
+// Each date (YYYY-MM-DD) gets one entry: what Pablo plans to build, what
+// actually shipped, status, and any input media (images/videos) the AI
+// drafting agents can read. The yc-series-post skill reads yesterday's
+// entry to inform today's drafts.
+const TIMELINE_MEDIA_ROOT = path.join(
+  process.env.CONTENT_PIPELINE_MEDIA_ROOT || '/Users/pablo/Projects/media',
+  'timeline',
+)
+const TIMELINE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const TIMELINE_STATUSES = new Set(['planned', 'in-progress', 'shipped', 'skipped'])
+
+interface TimelineAttachment {
+  id: string
+  filename: string
+  path: string
+  kind: 'image' | 'video' | 'other'
+  size: number
+  uploadedAt: string
+}
+
+interface TimelineEntry {
+  id: string
+  date: string
+  plannedTitle: string
+  plannedDescription: string
+  actualShipped: string
+  status: 'planned' | 'in-progress' | 'shipped' | 'skipped'
+  attachments: TimelineAttachment[]
+  createdAt: string
+  updatedAt: string
+}
+
+function isValidTimelineDate(s: unknown): s is string {
+  return typeof s === 'string' && TIMELINE_DATE_RE.test(s)
+}
+
+function newTimelineEntry(date: string): TimelineEntry {
+  const now = new Date().toISOString()
+  return {
+    id: date,
+    date,
+    plannedTitle: '',
+    plannedDescription: '',
+    actualShipped: '',
+    status: 'planned',
+    attachments: [],
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
+function sanitizeAttachmentFilename(name: string): string {
+  const base = path.basename(name || 'file')
+  const cleaned = base.replace(/[^A-Za-z0-9._-]/g, '_')
+  return cleaned || 'file'
+}
+
+function detectAttachmentKind(mime: string, ext: string): 'image' | 'video' | 'other' {
+  const e = ext.toLowerCase()
+  if ((mime || '').startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(e)) return 'image'
+  if ((mime || '').startsWith('video/') || /\.(mp4|mov|webm|m4v)$/i.test(e)) return 'video'
+  return 'other'
+}
+
+function timelineAttachmentDir(date: string): string {
+  return path.join(TIMELINE_MEDIA_ROOT, date)
+}
+
+function uniqueAttachmentPath(dir: string, filename: string): string {
+  const target = path.join(dir, filename)
+  if (!fs.existsSync(target)) return target
+  const ext = path.extname(filename)
+  const stem = filename.slice(0, filename.length - ext.length)
+  let i = 2
+  while (true) {
+    const candidate = path.join(dir, `${stem}-${i}${ext}`)
+    if (!fs.existsSync(candidate)) return candidate
+    i += 1
+  }
+}
+
+app.get('/api/timeline', (_req, res) => {
+  const entries = read<TimelineEntry>('timeline')
+  entries.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+  res.json(entries)
+})
+
+app.get('/api/timeline/range', (req, res) => {
+  const today = new Date().toISOString().slice(0, 10)
+  const startRaw = typeof req.query.start === 'string' ? req.query.start : ''
+  const endRaw = typeof req.query.end === 'string' ? req.query.end : ''
+  let start = isValidTimelineDate(startRaw) ? startRaw : ''
+  let end = isValidTimelineDate(endRaw) ? endRaw : ''
+  if (!start || !end) {
+    const endD = new Date(`${today}T00:00:00Z`)
+    const startD = new Date(endD.getTime() - 6 * 86400000)
+    start = startD.toISOString().slice(0, 10)
+    end = today
+  }
+  const entries = read<TimelineEntry>('timeline')
+    .filter((e) => e.date >= start && e.date <= end)
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+  res.json(entries)
+})
+
+app.get('/api/timeline/:date', (req, res) => {
+  const date = req.params.date
+  if (!isValidTimelineDate(date)) return res.status(400).json({ error: 'date must be YYYY-MM-DD' })
+  const existing = findById<TimelineEntry>('timeline', date)
+  if (existing) return res.json(existing)
+  res.json(newTimelineEntry(date))
+})
+
+app.put('/api/timeline/:date', (req, res) => {
+  const date = req.params.date
+  if (!isValidTimelineDate(date)) return res.status(400).json({ error: 'date must be YYYY-MM-DD' })
+  const body = (req.body || {}) as Partial<TimelineEntry>
+  if (body.status !== undefined && !TIMELINE_STATUSES.has(String(body.status))) {
+    return res.status(400).json({ error: 'status must be one of planned | in-progress | shipped | skipped' })
+  }
+  const existing = findById<TimelineEntry>('timeline', date) || newTimelineEntry(date)
+  const merged: TimelineEntry = {
+    ...existing,
+    plannedTitle: typeof body.plannedTitle === 'string' ? body.plannedTitle : existing.plannedTitle,
+    plannedDescription: typeof body.plannedDescription === 'string' ? body.plannedDescription : existing.plannedDescription,
+    actualShipped: typeof body.actualShipped === 'string' ? body.actualShipped : existing.actualShipped,
+    status: (body.status as TimelineEntry['status']) || existing.status,
+    // attachments are server-managed via /attach + /attach/:attachId — ignore body.attachments
+    attachments: existing.attachments,
+    id: date,
+    date,
+    createdAt: existing.createdAt,
+    updatedAt: new Date().toISOString(),
+  }
+  upsert('timeline', merged)
+  res.json(merged)
+})
+
+app.delete('/api/timeline/:date', (req, res) => {
+  const date = req.params.date
+  if (!isValidTimelineDate(date)) return res.status(400).json({ error: 'date must be YYYY-MM-DD' })
+  const existing = findById<TimelineEntry>('timeline', date)
+  if (!existing) return res.status(404).json({ error: 'Not found' })
+  remove('timeline', date)
+  try {
+    fs.rmSync(timelineAttachmentDir(date), { recursive: true, force: true })
+  } catch (e) {
+    console.error('[timeline] failed to remove attachment dir:', e)
+  }
+  res.json({ success: true })
+})
+
+app.post('/api/timeline/:date/attach', upload.single('file'), (req, res) => {
+  const date = req.params.date
+  if (!isValidTimelineDate(date)) {
+    if (req.file) try { fs.unlinkSync(req.file.path) } catch {}
+    return res.status(400).json({ error: 'date must be YYYY-MM-DD' })
+  }
+  const file = req.file as Express.Multer.File | undefined
+  if (!file) return res.status(400).json({ error: 'file required (multipart field "file")' })
+
+  const dir = timelineAttachmentDir(date)
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  const safeName = sanitizeAttachmentFilename(file.originalname)
+  const target = uniqueAttachmentPath(dir, safeName)
+  fs.renameSync(file.path, target)
+
+  const ext = path.extname(target)
+  const kind = detectAttachmentKind(file.mimetype || '', ext)
+  const attachment: TimelineAttachment = {
+    id: uuid(),
+    filename: path.basename(target),
+    path: target,
+    kind,
+    size: file.size,
+    uploadedAt: new Date().toISOString(),
+  }
+  const entry = findById<TimelineEntry>('timeline', date) || newTimelineEntry(date)
+  entry.attachments = [...(entry.attachments || []), attachment]
+  entry.updatedAt = new Date().toISOString()
+  entry.id = date
+  entry.date = date
+  upsert('timeline', entry)
+
+  res.status(201).json(attachment)
+})
+
+app.delete('/api/timeline/:date/attach/:attachId', (req, res) => {
+  const date = req.params.date
+  if (!isValidTimelineDate(date)) return res.status(400).json({ error: 'date must be YYYY-MM-DD' })
+  const entry = findById<TimelineEntry>('timeline', date)
+  if (!entry) return res.status(404).json({ error: 'Entry not found' })
+  const attach = (entry.attachments || []).find((a) => a.id === req.params.attachId)
+  if (!attach) return res.status(404).json({ error: 'Attachment not found' })
+  try {
+    if (attach.path && fs.existsSync(attach.path)) fs.unlinkSync(attach.path)
+  } catch (e) {
+    console.error('[timeline] failed to unlink attachment file:', e)
+  }
+  entry.attachments = (entry.attachments || []).filter((a) => a.id !== req.params.attachId)
+  entry.updatedAt = new Date().toISOString()
+  upsert('timeline', entry)
+  res.json({ ok: true })
+})
+
 // --- Media Upload & Management ---
 function weekFolder(weekKey: string): string {
   const dir = path.join(getMediaDir(), weekKey)

@@ -350,6 +350,48 @@ export interface Trigger {
   createdAt: string
 }
 
+// --- Timeline (weekly build planner) ---
+// Pablo plans his week ahead: each day has "what to build" + optional "what
+// shipped" + attached media. Primary key is the YYYY-MM-DD date string.
+
+export type TimelineStatus = 'planned' | 'in-progress' | 'shipped' | 'skipped'
+
+export const TIMELINE_STATUS_ORDER: TimelineStatus[] = ['planned', 'in-progress', 'shipped', 'skipped']
+
+export const TIMELINE_STATUS_LABELS: Record<TimelineStatus, string> = {
+  planned: 'Planned',
+  'in-progress': 'In progress',
+  shipped: 'Shipped',
+  skipped: 'Skipped',
+}
+
+export const TIMELINE_STATUS_COLORS: Record<TimelineStatus, string> = {
+  planned: '#64748b',     // slate
+  'in-progress': '#f59e0b', // amber
+  shipped: '#22c55e',     // green
+  skipped: '#52525b',     // zinc
+}
+
+export interface TimelineAttachment {
+  id: string
+  filename: string
+  path: string         // absolute path on server
+  kind: 'image' | 'video' | 'other'
+  size: number
+  uploadedAt: string
+}
+
+export interface TimelineEntry {
+  date: string                   // YYYY-MM-DD, primary key
+  plannedTitle: string
+  plannedDescription: string
+  actualShipped: string
+  status: TimelineStatus
+  attachments: TimelineAttachment[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface SentDm {
   id: string
   kind: OutreachKind
