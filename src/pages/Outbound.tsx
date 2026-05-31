@@ -61,6 +61,7 @@ const SORT_OPTIONS: Array<{ value: OutboundSort, label: string }> = [
 ]
 
 type DmsFilter = 'any' | 'open' | 'closed'
+type RecentFilter = 'any' | '3d' | '7d' | '15d' | '30d'
 
 interface FilterState {
   qualityMin: number
@@ -70,6 +71,7 @@ interface FilterState {
   hasDms: DmsFilter
   q: string
   sort: OutboundSort
+  recent: RecentFilter   // post-age filter (lead.posted_at), default '15d'
 }
 
 const EMPTY_FILTERS: FilterState = {
@@ -80,7 +82,16 @@ const EMPTY_FILTERS: FilterState = {
   hasDms: 'any',
   q: '',
   sort: 'newest',
+  recent: '15d',  // Pablo's policy: never reply to posts older than 15 days
 }
+
+const RECENT_OPTIONS: ReadonlyArray<{ value: RecentFilter; label: string }> = [
+  { value: 'any', label: 'Any age' },
+  { value: '3d', label: '< 3 days' },
+  { value: '7d', label: '< 7 days' },
+  { value: '15d', label: '< 15 days' },
+  { value: '30d', label: '< 30 days' },
+]
 
 function parseFiltersFromURL(): FilterState {
   if (typeof window === 'undefined') return { ...EMPTY_FILTERS }
@@ -91,6 +102,11 @@ function parseFiltersFromURL(): FilterState {
     : 'newest'
   const dmsRaw = sp.get('hasDms')
   const hasDms: DmsFilter = dmsRaw === 'true' ? 'open' : dmsRaw === 'false' ? 'closed' : 'any'
+  const recentRaw = sp.get('recent') || '15d'
+  const recent: RecentFilter =
+    (['any', '3d', '7d', '15d', '30d'] as const).includes(recentRaw as RecentFilter)
+      ? (recentRaw as RecentFilter)
+      : '15d'
   return {
     qualityMin: Math.max(0, Math.min(100, Number(sp.get('qualityMin') || 0) || 0)),
     qualityGatePassed: sp.get('qualityGatePassed') === 'true',
@@ -99,6 +115,7 @@ function parseFiltersFromURL(): FilterState {
     hasDms,
     q: sp.get('q') || '',
     sort,
+    recent,
   }
 }
 
@@ -106,7 +123,7 @@ function writeFiltersToURL(f: FilterState) {
   if (typeof window === 'undefined') return
   const sp = new URLSearchParams(window.location.search)
   // Strip our keys, then re-set the active ones so we don't litter the URL.
-  for (const key of ['qualityMin', 'qualityGatePassed', 'tier', 'postKind', 'hasDms', 'q', 'sort']) sp.delete(key)
+  for (const key of ['qualityMin', 'qualityGatePassed', 'tier', 'postKind', 'hasDms', 'q', 'sort', 'recent']) sp.delete(key)
   if (f.qualityMin > 0) sp.set('qualityMin', String(f.qualityMin))
   if (f.qualityGatePassed) sp.set('qualityGatePassed', 'true')
   if (f.tier.length > 0) sp.set('tier', f.tier.join(','))
@@ -114,6 +131,7 @@ function writeFiltersToURL(f: FilterState) {
   if (f.hasDms !== 'any') sp.set('hasDms', f.hasDms === 'open' ? 'true' : 'false')
   if (f.q) sp.set('q', f.q)
   if (f.sort !== 'newest') sp.set('sort', f.sort)
+  if (f.recent !== '15d') sp.set('recent', f.recent)
   const next = `${window.location.pathname}${sp.toString() ? `?${sp.toString()}` : ''}${window.location.hash}`
   window.history.replaceState(null, '', next)
 }
@@ -127,6 +145,7 @@ function activeFilterCount(f: FilterState): number {
   if (f.hasDms !== 'any') n++
   if (f.q.trim()) n++
   if (f.sort !== 'newest') n++
+  if (f.recent !== '15d') n++  // count when user moves off the default window
   return n
 }
 
@@ -140,6 +159,7 @@ function filtersToApi(f: FilterState): OutboundFilters {
   else if (f.hasDms === 'closed') out.hasDms = false
   if (f.q.trim()) out.q = f.q.trim()
   if (f.sort !== 'newest') out.sort = f.sort
+  if (f.recent !== 'any') out.recent = f.recent
   return out
 }
 
@@ -731,6 +751,19 @@ function FilterBar({
                     label={v[0].toUpperCase() + v.slice(1)}
                     active={filters.hasDms === v}
                     onClick={() => setFilters((prev) => ({ ...prev, hasDms: v }))}
+                  />
+                ))}
+              </div>
+
+              {/* Post-age window — Pablo's policy: only reply to recent posts */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] uppercase tracking-wider text-white/35 w-20">Post age</span>
+                {RECENT_OPTIONS.map((opt) => (
+                  <FilterPill
+                    key={opt.value}
+                    label={opt.label}
+                    active={filters.recent === opt.value}
+                    onClick={() => setFilters((prev) => ({ ...prev, recent: opt.value }))}
                   />
                 ))}
               </div>

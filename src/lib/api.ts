@@ -224,6 +224,7 @@ export const deleteSentDm = (id: string) =>
 
 // Outbound (openclaw X pipeline)
 export type OutboundSort = 'newest' | 'oldest' | 'quality' | 'tier'
+export type RecentPreset = '3d' | '7d' | '15d' | '30d'
 export interface OutboundFilters {
   qualityMin?: number
   qualityGatePassed?: boolean
@@ -232,6 +233,12 @@ export interface OutboundFilters {
   hasDms?: boolean
   q?: string
   sort?: OutboundSort
+  // Date filters (apply to lead.posted_at, NOT draft createdAt). Use either
+  // a `recent` preset OR explicit ISO timestamps. Pablo's policy: never
+  // reply to posts older than ~15 days, so '15d' is the default in the UI.
+  recent?: RecentPreset
+  postedAfter?: string  // ISO 8601
+  postedBefore?: string // ISO 8601
 }
 export const getOutbound = (
   status?: OutboundStatus,
@@ -249,6 +256,9 @@ export const getOutbound = (
     if (typeof filters.hasDms === 'boolean') qs.set('hasDms', filters.hasDms ? 'true' : 'false')
     if (filters.q && filters.q.trim()) qs.set('q', filters.q.trim())
     if (filters.sort && filters.sort !== 'newest') qs.set('sort', filters.sort)
+    if (filters.recent) qs.set('recent', filters.recent)
+    if (filters.postedAfter) qs.set('postedAfter', filters.postedAfter)
+    if (filters.postedBefore) qs.set('postedBefore', filters.postedBefore)
   }
   const q = qs.toString()
   return json<OutboundThread[]>(`/outbound${q ? `?${q}` : ''}`)
