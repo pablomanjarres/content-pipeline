@@ -16,7 +16,7 @@ console.log(profile ? `OK: status=${profile.status} interactions=${profile.inter
 console.log()
 
 console.log(`--- formatted context for ${sampleHandle} ---`)
-const ctx = memory.getMemoryContext({
+const ctx = await memory.getMemoryContext({
   handle: sampleHandle,
   platform: 'x',
   originalPostText: 'Cursor keeps hallucinating function names that do not exist in my repo',

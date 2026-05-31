@@ -660,6 +660,23 @@ function extractAliases(body: string): string[] {
   return m[1].split(',').map((s) => s.trim().replace(/^"|"$/g, '')).filter(Boolean)
 }
 
+export function getInsight(slug: string): InsightSummary | null {
+  const fp = path.join(INSIGHTS_DIR, `${slug}.md`)
+  if (!fs.existsSync(fp)) return null
+  const raw = fs.readFileSync(fp, 'utf-8')
+  const { fm, body } = parseFrontmatter(raw)
+  const evidence = Array.isArray(fm.evidence) ? (fm.evidence as string[]).length : 0
+  return {
+    slug,
+    title: (body.match(/^#\s+(.+)$/m)?.[1] || slug).trim(),
+    status: String(fm.status || 'hypothesis'),
+    domain: String(fm.domain || 'outreach'),
+    claim: sliceSection(body, 'Claim'),
+    implication: sliceSection(body, 'Implication'),
+    evidenceCount: evidence,
+  }
+}
+
 export function listInsights(domain?: string, statuses: string[] = ['supported', 'validated']): InsightSummary[] {
   const out: InsightSummary[] = []
   for (const fp of readMarkdownFiles(INSIGHTS_DIR)) {
@@ -705,22 +722,99 @@ function pabloVoiceShorthand(): string {
 }
 
 // ---------------------------------------------------------------------------
+// memory-rag bridge — semantic recall over openclaw-memory via :7375
+// ---------------------------------------------------------------------------
+
+const MEMORY_RAG_URL = process.env.MEMORY_RAG_URL || 'http://127.0.0.1:7375'
+const MEMORY_RAG_TIMEOUT_MS = Number(process.env.MEMORY_RAG_TIMEOUT_MS || 2000)
+
+interface RecallHit {
+  relPath: string
+  type: 'leads' | 'entities' | 'insights' | 'pablo'
+  slug: string
+  score: number
+}
+
+async function recallSemantic(query: string, k: number, types?: string[]): Promise<RecallHit[]> {
+  if (!query || !query.trim()) return []
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), MEMORY_RAG_TIMEOUT_MS)
+  try {
+    const res = await fetch(`${MEMORY_RAG_URL}/recall`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, k, ...(types ? { types } : {}) }),
+      signal: controller.signal,
+    })
+    if (!res.ok) {
+      console.warn(`[memory-rag] recall returned ${res.status}, falling back`)
+      return []
+    }
+    const body = (await res.json()) as { results?: RecallHit[] }
+    return Array.isArray(body.results) ? body.results : []
+  } catch (e) {
+    const msg = (e as Error).message || String(e)
+    console.warn(`[memory-rag] recall failed (${msg.slice(0, 120)}), falling back`)
+    return []
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // composite read used by the drafter
 // ---------------------------------------------------------------------------
 
-export function getMemoryContext(opts: {
+export async function getMemoryContext(opts: {
   handle: string
   platform: Platform
   originalPostText?: string
   insightDomain?: string
   maxEntities?: number
   maxInsights?: number
-}): MemoryContext {
+}): Promise<MemoryContext> {
   const handle = normalizeHandle(opts.handle)
   const lead = handle ? getLeadProfile(handle) : null
-  const probe = [opts.originalPostText || '', lead?.painPoints || '', lead?.stackSignals || ''].join(' ')
-  const entities = findEntitiesInText(probe, opts.maxEntities ?? 5)
-  const insights = listInsights(opts.insightDomain ?? 'outreach').slice(0, opts.maxInsights ?? 10)
+  const probe = [opts.originalPostText || '', lead?.painPoints || '', lead?.stackSignals || ''].join(' ').trim()
+  const maxEntities = opts.maxEntities ?? 5
+  const maxInsights = opts.maxInsights ?? 10
+
+  // Fire both recall calls in parallel against memory-rag. They short-circuit
+  // to [] if the server is down, the request times out, or the probe is empty.
+  const [entityHits, insightHits] = probe
+    ? await Promise.all([
+        recallSemantic(probe, maxEntities, ['entities']),
+        recallSemantic(probe, maxInsights, ['insights']),
+      ])
+    : [[], []]
+
+  // Hydrate semantic hits via existing structured loaders. Drop nulls (file
+  // existed at index time but was deleted before the loader ran — rare).
+  const semanticEntities: EntitySummary[] = []
+  for (const hit of entityHits) {
+    const e = getEntity(hit.slug)
+    if (e) semanticEntities.push(e)
+  }
+  const semanticInsights: InsightSummary[] = []
+  const insightDomain = opts.insightDomain ?? 'outreach'
+  for (const hit of insightHits) {
+    const i = getInsight(hit.slug)
+    if (!i) continue
+    if (insightDomain && i.domain !== insightDomain) continue
+    semanticInsights.push(i)
+  }
+
+  // Fallbacks when memory-rag is unavailable (or returns nothing): keep the
+  // pre-RAG behavior so the drafter never regresses below today's quality.
+  const entitiesFinal = semanticEntities.length > 0
+    ? semanticEntities
+    : findEntitiesInText(probe, maxEntities)
+
+  // For insights, semantic order beats evidence-count order when available.
+  // When semantic is empty, fall back to listInsights (highest-evidence first).
+  const insightsFinal = semanticInsights.length > 0
+    ? semanticInsights
+    : listInsights(insightDomain).slice(0, maxInsights)
 
   return {
     pablo: {
@@ -729,8 +823,8 @@ export function getMemoryContext(opts: {
       voiceRulesShorthand: pabloVoiceShorthand(),
     },
     lead,
-    entities,
-    insights,
+    entities: entitiesFinal,
+    insights: insightsFinal,
   }
 }
 

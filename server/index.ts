@@ -445,12 +445,26 @@ app.post('/api/videos', (req, res) => {
 })
 
 app.put('/api/videos/:id', (req, res) => {
-  const existing = findById('videos', req.params.id)
+  const existing = findById<any>('videos', req.params.id)
   if (!existing) return res.status(404).json({ error: 'Not found' })
   const updated = { ...existing, ...req.body, id: req.params.id, updatedAt: new Date().toISOString() }
   updated.platforms = defaultVideoPlatforms(updated.platforms)
   upsert('videos', updated)
   obsidian.syncVideo(updated)
+  // Capture voice edits for any of the text fields that changed
+  for (const field of ['script', 'hook', 'cta'] as const) {
+    if (typeof req.body[field] === 'string' && req.body[field] !== existing[field]) {
+      obsidian.appendVoiceEdit({
+        recordType: 'video',
+        recordId: updated.id,
+        recordTitle: updated.title || 'Untitled',
+        field,
+        before: existing[field] || '',
+        after: updated[field] || '',
+        reason: typeof req.body.editReason === 'string' ? req.body.editReason : undefined,
+      })
+    }
+  }
   res.json(updated)
 })
 

@@ -12,6 +12,8 @@ const VIDEOS_DIR = path.join(MARS_CONTENT, 'videos')
 const RUNS_DIR = path.join(MARS_CONTENT, 'runs')
 const DMS_DIR = path.join(MARS_CONTENT, 'dms')
 const REPLIES_DIR = path.join(MARS_CONTENT, 'replies')
+const VOICE_ANCHORS_DIR = path.join(MARS_CONTENT, 'voice-anchors')
+const EDITS_FILE = path.join(VOICE_ANCHORS_DIR, 'edits.md')
 
 function slugify(s: string): string {
   return (s || '')
@@ -80,6 +82,96 @@ function frontmatter(obj: Record<string, unknown>): string {
 
 function ensureDir(d: string) {
   fs.mkdirSync(d, { recursive: true })
+}
+
+// ─── Voice edits ledger ───────────────────────────────────────────────
+// Every time Pablo edits a post's content or a video's script/hook/cta in CP,
+// the BEFORE/AFTER is appended to `content/voice-anchors/edits.md`. Both
+// drafting skills (daily-post-batch, yc-series-post) load this file as a voice
+// anchor on every run, so future drafts learn from Pablo's corrections.
+
+function ensureEditsFile(): void {
+  if (fs.existsSync(EDITS_FILE)) return
+  fs.mkdirSync(VOICE_ANCHORS_DIR, { recursive: true })
+  const header = `---
+tags: [voice/edits, voice/learning, voice/canonical]
+kinds: [any]
+platform: any
+priority: high
+---
+
+# Pablo's edits — the canonical voice ledger
+
+Every time Pablo edits a post's content or a video's script/hook/cta in
+Content Pipeline, the BEFORE/AFTER is appended here automatically.
+
+The drafting skills (daily-post-batch, yc-series-post) load this file on
+every run. Pablo's edits ARE voice signal — pay attention to what he changed.
+
+## How to use this file when drafting
+
+1. Scan the most recent entries first.
+2. For each entry, identify the PATTERN being corrected (a hook shape, a
+   phrasing tic, a banned word, a CTA structure).
+3. Before returning your draft, check: does it contain a pattern Pablo
+   previously rewrote? If yes, match his edited preference, not the rejected
+   version.
+4. Entries marked with the same \`field\` repeatedly are high-signal — that's
+   a recurring correction Pablo keeps making.
+
+Entries below are appended in chronological order, newest at the bottom.
+`
+  fs.writeFileSync(EDITS_FILE, header, 'utf-8')
+}
+
+export function appendVoiceEdit(opts: {
+  recordType: 'post' | 'video'
+  recordId: string
+  recordTitle: string
+  platform?: string
+  field: 'content' | 'script' | 'hook' | 'cta'
+  before: string
+  after: string
+  reason?: string
+}): void {
+  try {
+    if (opts.before == null || opts.after == null) return
+    const beforeTrim = String(opts.before).trim()
+    const afterTrim = String(opts.after).trim()
+    if (beforeTrim === afterTrim) return
+    if (!beforeTrim && !afterTrim) return
+
+    ensureEditsFile()
+
+    const ts = new Date().toISOString()
+    const tsDay = ts.slice(0, 10)
+    const titleClean = (opts.recordTitle || 'Untitled').replace(/\n+/g, ' ').slice(0, 100)
+    const reasonLine = opts.reason ? `- **reason**: ${opts.reason.replace(/\n+/g, ' ')}\n` : ''
+
+    const block = `
+
+---
+
+## ${tsDay} — ${opts.recordType}: "${titleClean}" (${opts.field})
+
+- **id**: ${opts.recordId}
+- **platform**: ${opts.platform || 'n/a'}
+- **edited_at**: ${ts}
+${reasonLine}
+### BEFORE
+\`\`\`
+${opts.before}
+\`\`\`
+
+### AFTER
+\`\`\`
+${opts.after}
+\`\`\`
+`
+    fs.appendFileSync(EDITS_FILE, block, 'utf-8')
+  } catch (e) {
+    console.error('[obsidian-sync] appendVoiceEdit failed:', e)
+  }
 }
 
 // Find a file owned by `id`. First tries the legacy `${id}--*.md` prefix
@@ -457,7 +549,7 @@ export function syncPost(post: Post): void {
     const existing = findFileById(POSTS_DIR, post.id)
     if (existing && existing !== fp) safeUnlink(existing)
 
-    const dashboardUrl = `http://localhost:3001/#post/${post.id}`
+    const dashboardUrl = `http://localhost:3010/#post/${post.id}`
     const vaultMedia = vaultMediaPath(post.mediaPath)
     const fm = frontmatter({
       id: post.id,
@@ -522,7 +614,7 @@ export function syncVideo(video: Video): void {
     const existing = findFileById(VIDEOS_DIR, video.id)
     if (existing && existing !== fp) safeUnlink(existing)
 
-    const dashboardUrl = `http://localhost:3001/#video/${video.id}`
+    const dashboardUrl = `http://localhost:3010/#video/${video.id}`
     const fm = frontmatter({
       id: video.id,
       type: 'video',
