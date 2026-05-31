@@ -31,6 +31,7 @@ import {
   controlService as controlOpenclawService,
 } from './openclaw-admin.js'
 import { registerPaperclipRoutes } from './paperclip.js'
+import { registerBrollsRoutes } from './brolls.js'
 
 // Load ~/.openclaw/.env so triggers proxy (and any future feature) sees Supabase creds.
 // We use `bash -lc` so $(security find-generic-password ...) substitutions evaluate.
@@ -2919,6 +2920,7 @@ app.post('/api/openclaw/admin/service/:name/:action', controlOpenclawService)
 
 // Paperclip — Weekly Content Batch trigger (fires the routine on openclaw-vm)
 registerPaperclipRoutes(app)
+registerBrollsRoutes(app, { getMediaDir, getProjectDataDir })
 
 // Serve PWA assets (icons, manifest, favicon) in all environments
 const publicPath = path.join(APP_ROOT, 'public')

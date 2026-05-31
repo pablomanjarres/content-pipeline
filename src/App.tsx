@@ -58,7 +58,8 @@ function parseHash(): { page: Page; itemId: string | null } {
   const hash = window.location.hash.slice(1) || 'dashboard'
   if (hash.startsWith('video/')) return { page: 'video-detail', itemId: hash.slice(6) }
   if (hash.startsWith('post/')) return { page: 'post-detail', itemId: hash.slice(5) }
-  if (['dashboard', 'videos', 'posts', 'strategy', 'templates', 'ideas', 'outbound', 'sent', 'shorts', 'watchlist', 'ops'].includes(hash)) return { page: hash as Page, itemId: null }
+  if (hash === 'videos' || hash.startsWith('videos/')) return { page: 'videos', itemId: null }
+  if (['dashboard', 'posts', 'strategy', 'templates', 'ideas', 'outbound', 'sent', 'shorts', 'watchlist', 'ops'].includes(hash)) return { page: hash as Page, itemId: null }
   return { page: 'dashboard', itemId: null }
 }
 
