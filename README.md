@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://pablo-oss.vercel.app/content-pipeline">
+  <a href="https://pablomanjarres.com/oss/content-pipeline">
     <img src=".github/banner.png" alt="Content Pipeline" width="100%" />
   </a>
 </p>
@@ -22,7 +22,7 @@
   <img src="https://img.shields.io/badge/status-active-22c55e?style=for-the-badge" alt="Status: active" />
   <img src="https://img.shields.io/badge/version-1.1.0-8b5cf6?style=for-the-badge" alt="Version 1.1.0" />
   <a href="https://pablomanjarres.com/portfolio/projects/content-pipeline"><img src="https://img.shields.io/badge/Portfolio-write--up-8b5cf6?style=for-the-badge" alt="Portfolio write-up" /></a>
-  <a href="https://pablo-oss.vercel.app/content-pipeline"><img src="https://img.shields.io/badge/Landing-live-f97316?style=for-the-badge" alt="Landing page" /></a>
+  <a href="https://pablomanjarres.com/oss/content-pipeline"><img src="https://img.shields.io/badge/Landing-live-f97316?style=for-the-badge" alt="Landing page" /></a>
 </p>
 
 <p align="center">
@@ -358,7 +358,7 @@ The server restricts access to localhost (`127.0.0.1`, `::1`) and the Tailscale 
 ---
 
 <p align="center">
-  <a href="https://pablo-oss.vercel.app/content-pipeline">Landing</a>
+  <a href="https://pablomanjarres.com/oss/content-pipeline">Landing</a>
   ·
   <a href="https://pablomanjarres.com/portfolio/projects/content-pipeline">Portfolio write-up</a>
   ·
