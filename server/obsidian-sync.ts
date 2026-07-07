@@ -2,8 +2,8 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
-const MARS_CONTENT = process.env.MARS_CONTENT_ROOT || '/Users/pablo/Projects/Mars/Mars/content'
-const MARS_VAULT_ROOT = process.env.MARS_VAULT_ROOT || '/Users/pablo/Projects/Mars/Mars'
+const MARS_CONTENT = process.env.MARS_CONTENT_ROOT || '/Users/pablo/Library/Mobile Documents/com~apple~CloudDocs/Mars/Mars/content'
+const MARS_VAULT_ROOT = process.env.MARS_VAULT_ROOT || '/Users/pablo/Library/Mobile Documents/com~apple~CloudDocs/Mars/Mars'
 const MEDIA_ROOT = process.env.CONTENT_PIPELINE_MEDIA_ROOT || '/Users/pablo/Projects/media'
 const ICLOUD_DOCS = path.join(os.homedir(), 'Library', 'Mobile Documents', 'com~apple~CloudDocs')
 const ICLOUD_MARS_CONTENT = process.env.ICLOUD_CP_MARS_CONTENT_ROOT || path.join(ICLOUD_DOCS, 'Content Pipeline', 'Mars', 'content')
