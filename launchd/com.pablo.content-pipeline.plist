@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.pablo.content-pipeline</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Applications/Content Pipeline.app/Contents/MacOS/Content Pipeline</string>
+    </array>
+    <!-- Relaunch on crash or nonzero exit, but stay down after a clean quit. -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <!-- obsidian-sync reads these. Without them the app falls back to its
+         compiled defaults; pinning them here keeps vault writes pointed at
+         the one true iCloud Mars vault. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>MARS_CONTENT_ROOT</key>
+        <string>/Users/pablo/Library/Mobile Documents/com~apple~CloudDocs/Mars/Mars/content</string>
+        <key>MARS_VAULT_ROOT</key>
+        <string>/Users/pablo/Library/Mobile Documents/com~apple~CloudDocs/Mars/Mars</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/tmp/content-pipeline.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/content-pipeline.err</string>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+</dict>
+</plist>
