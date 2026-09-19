@@ -2377,8 +2377,7 @@ app.post('/api/outbound', async (req, res) => {
     status: 'drafted',
     skipReason: null,
     // Watchlist + quality gate metadata (optional, set by x-drafter when the
-    // lead came from watchlist-radar). UI surfaces tier badge + quality score;
-    // notifications.ts uses qualityGatePassed to suppress weak alerts.
+    // lead came from watchlist-radar). UI surfaces tier badge + quality score.
     qualityScore: typeof req.body.qualityScore === 'number' ? req.body.qualityScore : null,
     qualityGatePassed: typeof req.body.qualityGatePassed === 'boolean' ? req.body.qualityGatePassed : null,
     tier: ['T1','T2','T3'].includes(req.body.tier) ? req.body.tier : null,
