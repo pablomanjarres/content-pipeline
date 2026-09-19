@@ -10,7 +10,6 @@ import { execSync, spawn } from 'child_process'
 import { read, write, findById, upsert, remove } from './storage.js'
 import * as obsidian from './obsidian-sync.js'
 import * as memory from './memory.js'
-import { sendPushover, shouldAlert, markAlerted } from './notifications.js'
 import {
   searchIndex as algoliaSearch,
   indexDms, indexVoiceAnchors, indexLeads,
@@ -1915,7 +1914,7 @@ app.get('/api/outbound', (req, res) => {
 
 // Per-platform 500-active-lead cap. "Active" excludes leads we already engaged
 // with (sent, partial_sent, skipped). When the cap is hit we refuse new inserts
-// for that platform and Pushover-alert Pablo (debounced 24h per platform).
+// for that platform. Callers can inspect /api/outbound/cap-status.
 const PLATFORM_CAP = parseInt(process.env.CP_PLATFORM_CAP || '500', 10)
 const INACTIVE_STATUSES = new Set(['sent', 'partial_sent', 'skipped'])
 const KNOWN_PLATFORMS = ['x', 'linkedin', 'reddit'] as const
@@ -1924,10 +1923,6 @@ type CapPlatform = typeof KNOWN_PLATFORMS[number]
 function activeCount(threads: any[], platform: CapPlatform): number {
   return threads.filter((t: any) =>
     (t.platform || 'x') === platform && !INACTIVE_STATUSES.has(t.status)).length
-}
-
-function capAlertsPath(): string {
-  return path.join(getProjectDataDir(), 'cap-alerts.json')
 }
 
 app.get('/api/outbound/cap-status', (_req, res) => {
@@ -2318,22 +2313,12 @@ app.post('/api/outbound', async (req, res) => {
     ? (req.body.platform as CapPlatform)
     : 'x'
 
-  // Cap guard: if this platform's active queue is at the limit, refuse the
-  // insert and Pushover-alert Pablo (debounced 24h per platform). The drafter
-  // should also pre-check via /api/outbound/cap-status to avoid wasting Claude
-  // calls drafting threads that can't land.
+  // Cap guard: refuse inserts when this platform's active queue is full.
+  // The drafter should pre-check /api/outbound/cap-status to avoid spending
+  // Claude calls on drafts that cannot land.
   const existing = readOutbound()
   const activeNow = activeCount(existing, platform)
   if (activeNow >= PLATFORM_CAP) {
-    const alertsFile = capAlertsPath()
-    if (shouldAlert(alertsFile, platform)) {
-      markAlerted(alertsFile, platform)
-      sendPushover({
-        title: 'CP cap reached',
-        message: `${platform} bucket at ${activeNow}/${PLATFORM_CAP} active leads. Drain (send or skip) before more drafts can land.`,
-        priority: 1,
-      }).catch((e) => console.warn('[cap] pushover failed:', e))
-    }
     return res.status(429).json({
       error: 'platform_cap_reached',
       platform,
@@ -2405,13 +2390,6 @@ app.post('/api/outbound', async (req, res) => {
   const all = readOutbound()
   all.unshift(thread)
   writeOutbound(all)
-
-  // Reset the alert window if Pablo drained back below the cap (so when he
-  // refills past the cap, he gets a fresh alert instead of waiting 24h).
-  try {
-    const after = activeCount(all, platform)
-    if (after < PLATFORM_CAP) markAlerted(capAlertsPath(), `${platform}_reset`, new Date(0))
-  } catch { /* non-fatal */ }
 
   res.status(201).json(thread)
 })
