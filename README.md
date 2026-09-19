@@ -31,7 +31,7 @@
 
 Content Pipeline tracks every piece of content from a raw idea to a posted link. You plan the week, drop in clips from your phone, move videos through a status board (idea, scripted, filming, editing, ready, scheduled, posted), draft text posts for LinkedIn, X, and Reddit, and keep a queue of AI-drafted replies for review before anything goes out.
 
-The core runs on your machine. Videos, posts, ideas, and weekly plans live in plain JSON files on disk, and media stays in a folder you point at. Nothing is required to be in the cloud. Optional server modules connect to outside services (Algolia search, Pushover alerts, a Supabase table for the reply radar, an Obsidian vault sync) only when you set their environment variables.
+The core runs on your machine. Videos, posts, ideas, and weekly plans live in plain JSON files on disk, and media stays in a folder you point at. Nothing is required to be in the cloud. Optional server modules connect to outside services (Algolia search, a Supabase table for the reply radar, an Obsidian vault sync) only when you set their environment variables.
 
 ## Highlights
 
@@ -99,7 +99,6 @@ Not a monorepo. One app, organized by process.
 - `watchlist.ts` is CRUD for the tiered radar handles, backed by a Supabase table.
 - `paperclip.ts` fires a weekly content-batch routine on a Paperclip instance and stores its token.
 - `algolia.ts` is a server-side Algolia REST client and indexer for lead, DM, and voice-anchor search.
-- `notifications.ts` is a Pushover client for cap alerts.
 - `openclaw-admin.ts` proxies to a VM admin service to start and stop worker pools.
 
 Every module above the core JSON store is optional and gated behind its own environment variables. The app runs without any of them.
@@ -209,7 +208,7 @@ npm run lint
 | `PORT` | `3001` | Fallback server port |
 | `VITE_PORT` | `5173` | Vite dev server port (used by Electron in dev) |
 
-The optional integration modules read their own variables (for example `ALGOLIA_APP_ID`, `PUSHOVER_APP_TOKEN`). Leave them unset to keep those features off.
+The optional integration modules read their own variables (for example `ALGOLIA_APP_ID`). Leave them unset to keep those features off.
 
 ## Data model
 
